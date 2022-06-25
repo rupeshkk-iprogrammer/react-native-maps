@@ -8,7 +8,7 @@
  */
 
 #import "AIRMap.h"
-
+#import <React/RCTViewComponentView.h>
 #import <React/RCTEventDispatcher.h>
 #import <React/UIView+React.h>
 #import "AIRMapMarker.h"
@@ -20,6 +20,18 @@
 #import "AIRMapWMSTile.h"
 #import "AIRMapLocalTile.h"
 #import "AIRMapOverlay.h"
+
+
+#import <react/renderer/components/RNMapsComponents/ComponentDescriptors.h>
+#import <react/renderer/components/RNMapsComponents/Props.h>
+#import <react/renderer/components/RNMapsComponents/RCTComponentViewHelpers.h>
+#import <react/renderer/components/RNMapsComponents/ShadowNodes.h>
+#import "RCTFabricComponentsPlugins.h"
+#import "RCTConvert+AirMapFabric.h"
+#import <React/RCTConversions.h>
+#import <React/RCTViewComponentView.h>
+
+using namespace facebook::react;
 
 const CLLocationDegrees AIRMapDefaultSpan = 0.005;
 const NSTimeInterval AIRMapRegionChangeObserveInterval = 0.1;
@@ -34,7 +46,7 @@ const NSInteger AIRMapMaxZoomLevel = 20;
 
 @end
 
-@interface AIRMap ()
+@interface AIRMap () <RCTAIRMapViewProtocol, RCTComponentViewProtocol>
 
 @property (nonatomic, strong) UIActivityIndicatorView *activityIndicatorView;
 @property (nonatomic, assign) NSNumber *shouldZoomEnabled;
@@ -62,6 +74,157 @@ const NSInteger AIRMapMaxZoomLevel = 20;
     // Implementation based on RCTTextField, another component with indirect children
     // https://github.com/facebook/react-native/blob/v0.16.0/Libraries/Text/RCTTextField.m#L20
     NSMutableArray<UIView *> *_reactSubviews;
+}
+
++ (ComponentDescriptorProvider)componentDescriptorProvider
+{
+    return concreteComponentDescriptorProvider<AIRMapComponentDescriptor>();
+}
+
+- (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
+{
+    // override with null ptr if it's inital render, and oldProps are not defined
+    const auto &oldViewProps = oldProps != nullptr ? *std::static_pointer_cast<AIRMapProps const>(oldProps):*std::make_shared<AIRMapProps const>();
+    const auto &newViewProps = *std::static_pointer_cast<AIRMapProps const>(props);
+
+    NSLog(@"updateProps");
+    
+    
+    if (oldViewProps.initialRegion.latitude != newViewProps.initialRegion.latitude ||
+        oldViewProps.initialRegion.longitude != newViewProps.initialRegion.longitude ||
+        oldViewProps.initialRegion.latitudeDelta != newViewProps.initialRegion.latitudeDelta || oldViewProps.initialRegion.longitudeDelta != newViewProps.initialRegion.longitudeDelta) {
+       
+        BOOL originalIgnore = self.ignoreRegionChanges;
+        self.ignoreRegionChanges = YES;
+        [self setInitialRegion: [RCTConvert MKCoordinateInitalRegionFabric:newViewProps.initialRegion]];
+        self.ignoreRegionChanges = originalIgnore;
+    }
+    
+    if (oldViewProps.region.latitude != newViewProps.region.latitude ||
+        oldViewProps.region.longitude != newViewProps.region.longitude ||
+        oldViewProps.region.latitudeDelta != newViewProps.region.latitudeDelta || oldViewProps.region.longitudeDelta != newViewProps.region.longitudeDelta) {
+       
+        BOOL originalIgnore = self.ignoreRegionChanges;
+        self.ignoreRegionChanges = YES;
+        [self setRegion:[RCTConvert MKCoordinateRegionFabric:newViewProps.region] animated:NO];
+        self.ignoreRegionChanges = originalIgnore;
+    }
+    //RCT_EXPORT_VIEW_PROPERTY(isAccessibilityElement, BOOL)
+   
+    //RCT_REMAP_VIEW_PROPERTY(testID, accessibilityIdentifier, NSString)
+    if (oldViewProps.testId != newViewProps.testId) {
+        self.accessibilityIdentifier = RCTNSStringFromStringNilIfEmpty(newViewProps.testId);
+    }
+    //RCT_EXPORT_VIEW_PROPERTY(showsUserLocation, BOOL)
+    if (oldViewProps.showsUserLocation != newViewProps.showsUserLocation) {
+        self.showsUserLocation = newViewProps.showsUserLocation;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(tintColor, UIColor)
+    if (oldViewProps.tintColor != newViewProps.tintColor) {
+        self.tintColor = RCTUIColorFromSharedColor(newViewProps.tintColor);
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(userLocationAnnotationTitle, NSString)
+    if (oldViewProps.userLocationAnnotationTitle != newViewProps.userLocationAnnotationTitle) {
+        self.userLocationAnnotationTitle = RCTNSStringFromStringNilIfEmpty(newViewProps.userLocationAnnotationTitle);
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(userInterfaceStyle, NSString)
+    if (oldViewProps.userInterfaceStyle != newViewProps.userInterfaceStyle) {
+        self.userInterfaceStyle = RCTNSStringFromStringNilIfEmpty(newViewProps.userInterfaceStyle);
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(followsUserLocation, BOOL)
+    if (oldViewProps.followsUserLocation != newViewProps.followsUserLocation) {
+        self.followsUserLocation = newViewProps.followsUserLocation;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(userLocationCalloutEnabled, BOOL)
+    if (oldViewProps.userLocationCalloutEnabled != newViewProps.userLocationCalloutEnabled) {
+        self.userLocationCalloutEnabled = newViewProps.userLocationCalloutEnabled;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(showsPointsOfInterest, BOOL)
+    if (oldViewProps.showsPointsOfInterest != newViewProps.showsPointsOfInterest) {
+        self.showsPointsOfInterest = newViewProps.showsPointsOfInterest;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(showsBuildings, BOOL)
+    if (oldViewProps.showsBuildings != newViewProps.showsBuildings) {
+        self.showsBuildings = newViewProps.showsBuildings;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(showsCompass, BOOL)
+    if (oldViewProps.showsCompass != newViewProps.showsCompass) {
+        self.showsCompass = newViewProps.showsCompass;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(showsScale, BOOL)
+    if (oldViewProps.showsScale != newViewProps.showsScale) {
+        self.showsScale = newViewProps.showsScale;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(showsTraffic, BOOL)
+    if (oldViewProps.showsTraffic != newViewProps.showsTraffic) {
+        self.showsTraffic = newViewProps.showsTraffic;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(zoomEnabled, BOOL)
+    if (oldViewProps.zoomEnabled != newViewProps.zoomEnabled) {
+        self.zoomEnabled = newViewProps.zoomEnabled;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(kmlSrc, NSString)
+    if (oldViewProps.kmlSrc != newViewProps.kmlSrc) {
+        // TODO not found, is it used????
+        // self.kmlSrc = RCTNSStringFromStringNilIfEmpty(newViewProps.kmlSrc);
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(rotateEnabled, BOOL)
+    if (oldViewProps.rotateEnabled != newViewProps.rotateEnabled) {
+        self.rotateEnabled = newViewProps.rotateEnabled;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(scrollEnabled, BOOL)
+    if (oldViewProps.scrollEnabled != newViewProps.scrollEnabled) {
+        self.scrollEnabled = newViewProps.scrollEnabled;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(pitchEnabled, BOOL)
+    if (oldViewProps.pitchEnabled != newViewProps.pitchEnabled) {
+        self.pitchEnabled = newViewProps.pitchEnabled;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(cacheEnabled, BOOL)
+    if (oldViewProps.cacheEnabled != newViewProps.cacheEnabled) {
+        self.cacheEnabled = newViewProps.cacheEnabled;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(loadingEnabled, BOOL)
+    if (oldViewProps.loadingEnabled != newViewProps.loadingEnabled) {
+        self.loadingEnabled = newViewProps.loadingEnabled;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(loadingBackgroundColor, UIColor)
+    if (oldViewProps.loadingBackgroundColor != newViewProps.loadingBackgroundColor) {
+        self.loadingBackgroundColor = RCTUIColorFromSharedColor(newViewProps.loadingBackgroundColor);
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(loadingIndicatorColor, UIColor)
+    if (oldViewProps.loadingIndicatorColor != newViewProps.loadingIndicatorColor) {
+        self.loadingIndicatorColor = RCTUIColorFromSharedColor(newViewProps.loadingIndicatorColor);
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(handlePanDrag, BOOL)
+    if (oldViewProps.handlePanDrag != newViewProps.handlePanDrag) {
+        self.handlePanDrag = newViewProps.handlePanDrag;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(maxDelta, CGFloat)
+    if (oldViewProps.maxDelta != newViewProps.maxDelta) {
+        self.maxDelta = newViewProps.maxDelta;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(minDelta, CGFloat)
+    if (oldViewProps.minDelta != newViewProps.minDelta) {
+        self.minDelta = newViewProps.minDelta;
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(compassOffset, CGPoint)
+    if (oldViewProps.compassOffset.x != newViewProps.compassOffset.x || oldViewProps.compassOffset.y != newViewProps.compassOffset.y) {
+        self.compassOffset = (CGPoint) {newViewProps.compassOffset.x, newViewProps.compassOffset.y};
+    }
+    // RCT_EXPORT_VIEW_PROPERTY(legalLabelInsets, UIEdgeInsets)
+    // RCT_EXPORT_VIEW_PROPERTY(mapPadding, UIEdgeInsets)
+    // RCT_EXPORT_VIEW_PROPERTY(mapType, MKMapType)
+    if (oldViewProps.mapType != newViewProps.mapType) {
+        id mapStr = RCTNSStringFromStringNilIfEmpty(newViewProps.mapType);
+        if (mapStr) {
+            self.mapType = [RCTConvert MKMapType:mapStr];
+        }
+    }
+    
+    
+   
+    [super updateProps:props oldProps:oldProps];
 }
 
 - (instancetype)init
@@ -141,6 +304,20 @@ const NSInteger AIRMapMaxZoomLevel = 20;
     }
     [_reactSubviews insertObject:(UIView *)subview atIndex:(NSUInteger) atIndex];
 }
+
+- (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+    NSLog(@"mount");
+//   [_containerView insertSubview:childComponentView atIndex:index];
+}
+
+- (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+  //[childComponentView removeFromSuperview];
+}
+
+
+
 #pragma clang diagnostic pop
 
 #pragma clang diagnostic push
@@ -689,3 +866,11 @@ const NSInteger AIRMapMaxZoomLevel = 20;
 }
 
 @end
+
+
+extern "C" {
+    Class<RCTComponentViewProtocol> AIRMapCls(void)
+    {
+        return AIRMap.class;
+    }
+}
