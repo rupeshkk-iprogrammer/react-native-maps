@@ -7,8 +7,10 @@ import {
 import decorateMapComponent, {
   USES_DEFAULT_IMPLEMENTATION,
   SUPPORTED,
+  DecoratedComponent,
 } from './decorateMapComponent';
 import * as ProviderConstants from './ProviderConstants';
+import { MapPolygonProps } from 'react-native-maps';
 
 const propTypes = {
   ...ViewPropTypes,
@@ -146,8 +148,11 @@ const defaultProps = {
   strokeWidth: 1,
 };
 
-class MapPolygon extends React.Component {
-  setNativeProps(props) {
+class MapPolygon extends DecoratedComponent<MapPolygonProps> {
+  static propTypes = propTypes;
+  static defaultProps = defaultProps;
+
+  setNativeProps(props: MapPolygonProps) {
     this.polygon.setNativeProps(props);
   }
 
@@ -187,9 +192,6 @@ class MapPolygon extends React.Component {
     );
   }
 }
-
-MapPolygon.propTypes = propTypes;
-MapPolygon.defaultProps = defaultProps;
 
 export default decorateMapComponent(MapPolygon, {
   componentType: 'Polygon',

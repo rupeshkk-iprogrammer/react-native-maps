@@ -5,6 +5,7 @@ import { ViewPropTypes } from 'deprecated-react-native-prop-types';
 import decorateMapComponent, {
   USES_DEFAULT_IMPLEMENTATION,
   SUPPORTED,
+  DecoratedComponent,
 } from './decorateMapComponent';
 
 const propTypes = {
@@ -32,14 +33,13 @@ const propTypes = {
   tileSize: PropTypes.number,
 };
 
-class MapLocalTile extends React.Component {
+class MapLocalTile extends DecoratedComponent {
+  static propTypes = propTypes;
   render() {
     const AIRMapLocalTile = this.getAirComponent();
     return <AIRMapLocalTile {...this.props} />;
   }
 }
-
-MapLocalTile.propTypes = propTypes;
 
 export default decorateMapComponent(MapLocalTile, {
   componentType: 'LocalTile',

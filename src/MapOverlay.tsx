@@ -1,12 +1,14 @@
-import React, { Component } from 'react';
+import React from 'react';
 import PropTypes from 'prop-types';
 import { StyleSheet, Image, Animated } from 'react-native';
 import { ViewPropTypes } from 'deprecated-react-native-prop-types';
 
 import decorateMapComponent, {
+  DecoratedComponent,
   SUPPORTED,
   USES_DEFAULT_IMPLEMENTATION,
 } from './decorateMapComponent';
+import { MapOverlayProps } from 'react-native-maps';
 
 const viewConfig = {
   uiViewClassName: 'AIR<provider>MapOverlay',
@@ -33,7 +35,14 @@ const propTypes = {
   opacity: PropTypes.number,
 };
 
-class MapOverlay extends Component {
+class MapOverlay extends DecoratedComponent<MapOverlayProps> {
+  static propTypes = propTypes;
+  static viewConfig = viewConfig;
+  static defaultProps = {
+    opacity: 1.0,
+  };
+  static Animated: Animated.AnimatedComponent<typeof MapOverlay>;
+
   render() {
     let image;
     if (this.props.image) {
@@ -59,12 +68,6 @@ class MapOverlay extends Component {
     );
   }
 }
-
-MapOverlay.propTypes = propTypes;
-MapOverlay.viewConfig = viewConfig;
-MapOverlay.defaultProps = {
-  opacity: 1.0,
-};
 
 const styles = StyleSheet.create({
   overlay: {

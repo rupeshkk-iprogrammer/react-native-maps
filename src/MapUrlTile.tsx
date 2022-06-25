@@ -5,6 +5,7 @@ import { ViewPropTypes } from 'deprecated-react-native-prop-types';
 import decorateMapComponent, {
   USES_DEFAULT_IMPLEMENTATION,
   SUPPORTED,
+  DecoratedComponent,
 } from './decorateMapComponent';
 
 const propTypes = {
@@ -111,14 +112,13 @@ const propTypes = {
   opacity: PropTypes.number,
 };
 
-class MapUrlTile extends React.Component {
+class MapUrlTile extends DecoratedComponent {
+  static propTypes = propTypes;
   render() {
     const AIRMapUrlTile = this.getAirComponent();
     return <AIRMapUrlTile {...this.props} />;
   }
 }
-
-MapUrlTile.propTypes = propTypes;
 
 export default decorateMapComponent(MapUrlTile, {
   componentType: 'UrlTile',

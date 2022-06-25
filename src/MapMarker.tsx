@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import React from 'react';
+import React, { Component } from 'react';
 import {
   StyleSheet,
   Platform,
@@ -7,6 +7,7 @@ import {
   Animated,
   Image,
   findNodeHandle,
+  NativeMethods,
 } from 'react-native';
 import {
   ColorPropType,
@@ -14,9 +15,11 @@ import {
 } from 'deprecated-react-native-prop-types';
 
 import decorateMapComponent, {
+  DecoratedComponent,
   SUPPORTED,
   USES_DEFAULT_IMPLEMENTATION,
 } from './decorateMapComponent';
+import { Coordinate, MarkerProps } from 'react-native-maps';
 
 const viewConfig = {
   uiViewClassName: 'AIR<provider>MapMarker',
@@ -256,8 +259,15 @@ const defaultProps = {
   stopPropagation: false,
 };
 
-class MapMarker extends React.Component {
-  constructor(props) {
+class MapMarker extends DecoratedComponent<MarkerProps, {}> {
+  static propTypes = propTypes;
+  static defaultProps = defaultProps;
+  static viewConfig = viewConfig;
+
+  marker: (Component<unknown, {}, any> & Readonly<NativeMethods>) | null = null;
+  static Animated: Animated.AnimatedComponent<React.ComponentType<any>>;
+
+  constructor(props: MarkerProps) {
     super(props);
 
     this.showCallout = this.showCallout.bind(this);
@@ -266,8 +276,8 @@ class MapMarker extends React.Component {
     this.animateMarkerToCoordinate = this.animateMarkerToCoordinate.bind(this);
   }
 
-  setNativeProps(props) {
-    this.marker.setNativeProps(props);
+  setNativeProps(props: MarkerProps) {
+    this.marker?.setNativeProps(props);
   }
 
   showCallout() {
@@ -282,7 +292,7 @@ class MapMarker extends React.Component {
     this._runCommand('redrawCallout', []);
   }
 
-  animateMarkerToCoordinate(coordinate, duration) {
+  animateMarkerToCoordinate(coordinate: Coordinate, duration?: number) {
     this._runCommand('animateMarkerToCoordinate', [
       coordinate,
       duration || 500,
@@ -297,7 +307,7 @@ class MapMarker extends React.Component {
     return findNodeHandle(this.marker);
   }
 
-  _runCommand(name, args) {
+  _runCommand(name: string, args: any) {
     switch (Platform.OS) {
       case 'android':
         NativeModules.UIManager.dispatchViewManagerCommand(
@@ -340,7 +350,7 @@ class MapMarker extends React.Component {
         image={image}
         icon={icon}
         style={[styles.marker, this.props.style]}
-        onPress={(event) => {
+        onPress={(event: any) => {
           if (this.props.stopPropagation) {
             event.stopPropagation();
           }
@@ -352,10 +362,6 @@ class MapMarker extends React.Component {
     );
   }
 }
-
-MapMarker.propTypes = propTypes;
-MapMarker.defaultProps = defaultProps;
-MapMarker.viewConfig = viewConfig;
 
 const styles = StyleSheet.create({
   marker: {

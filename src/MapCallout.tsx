@@ -3,6 +3,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { ViewPropTypes } from 'deprecated-react-native-prop-types';
 import decorateMapComponent, {
+  DecoratedComponent,
   SUPPORTED,
   USES_DEFAULT_IMPLEMENTATION,
 } from './decorateMapComponent';
@@ -19,7 +20,9 @@ const defaultProps = {
   alphaHitTest: false,
 };
 
-class MapCallout extends React.Component {
+class MapCallout extends DecoratedComponent {
+  static propTypes = propTypes;
+  static defaultProps = defaultProps;
   render() {
     const AIRMapCallout = this.getAirComponent();
     return (
@@ -30,9 +33,6 @@ class MapCallout extends React.Component {
     );
   }
 }
-
-MapCallout.propTypes = propTypes;
-MapCallout.defaultProps = defaultProps;
 
 const styles = StyleSheet.create({
   callout: {

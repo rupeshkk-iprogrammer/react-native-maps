@@ -1,11 +1,13 @@
 import PropTypes from 'prop-types';
-import React from 'react';
-import { processColor } from 'react-native';
+import React, { Component } from 'react';
+import { NativeMethods, processColor } from 'react-native';
 import { ViewPropTypes } from 'deprecated-react-native-prop-types';
 import decorateMapComponent, {
+  DecoratedComponent,
   SUPPORTED,
   USES_DEFAULT_IMPLEMENTATION,
 } from './decorateMapComponent';
+import { MapHeatmapProps } from 'react-native-maps';
 
 const propTypes = {
   ...ViewPropTypes,
@@ -61,9 +63,15 @@ const defaultProps = {
   strokeWidth: 1,
 };
 
-class MapHeatmap extends React.Component {
-  setNativeProps(props) {
-    this.heatmap.setNativeProps(props);
+class MapHeatmap extends DecoratedComponent<MapHeatmapProps> {
+  static propTypes = propTypes;
+  static defaultProps = defaultProps;
+
+  heatmap: (Component<unknown, {}, any> & Readonly<NativeMethods>) | null =
+    null;
+
+  setNativeProps(props: MapHeatmapProps) {
+    this.heatmap?.setNativeProps(props);
   }
 
   render() {
@@ -84,9 +92,6 @@ class MapHeatmap extends React.Component {
     );
   }
 }
-
-MapHeatmap.propTypes = propTypes;
-MapHeatmap.defaultProps = defaultProps;
 
 export default decorateMapComponent(MapHeatmap, {
   componentType: 'Heatmap',

@@ -5,6 +5,7 @@ import { ViewPropTypes } from 'deprecated-react-native-prop-types';
 import decorateMapComponent, {
   USES_DEFAULT_IMPLEMENTATION,
   SUPPORTED,
+  DecoratedComponent,
 } from './decorateMapComponent';
 
 const propTypes = {
@@ -103,14 +104,14 @@ const propTypes = {
   opacity: PropTypes.number,
 };
 
-class MapWMSTile extends React.Component {
+class MapWMSTile extends DecoratedComponent {
+  static propTypes = propTypes;
   render() {
     const AIRMapWMSTile = this.getAirComponent();
     return <AIRMapWMSTile {...this.props} />;
   }
 }
 
-MapWMSTile.propTypes = propTypes;
 export default decorateMapComponent(MapWMSTile, {
   componentType: 'WMSTile',
   providers: {

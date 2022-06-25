@@ -5,6 +5,7 @@ import { ViewPropTypes } from 'deprecated-react-native-prop-types';
 import decorateMapComponent, {
   SUPPORTED,
   NOT_SUPPORTED,
+  DecoratedComponent,
 } from './decorateMapComponent';
 
 const propTypes = {
@@ -14,7 +15,9 @@ const propTypes = {
 
 const defaultProps = {};
 
-class MapCalloutSubview extends React.Component {
+class MapCalloutSubview extends DecoratedComponent {
+  static propTypes = propTypes;
+  static defaultProps = defaultProps;
   render() {
     const AIRMapCalloutSubview = this.getAirComponent();
     return (
@@ -25,9 +28,6 @@ class MapCalloutSubview extends React.Component {
     );
   }
 }
-
-MapCalloutSubview.propTypes = propTypes;
-MapCalloutSubview.defaultProps = defaultProps;
 
 const styles = StyleSheet.create({
   calloutSubview: {},

@@ -1,4 +1,5 @@
 import { Animated } from 'react-native';
+import { Region } from 'react-native-maps';
 
 const AnimatedWithChildren = Object.getPrototypeOf(Animated.ValueXY);
 if (__DEV__) {
@@ -26,7 +27,10 @@ const defaultValues = {
 
 let _uniqueId = 1;
 
-const getAnimatedValue = (valueIn, fallback) => {
+const getAnimatedValue = (
+  valueIn: Animated.Value | number,
+  fallback: number
+) => {
   if (valueIn instanceof Animated.Value) {
     return valueIn;
   } else if (typeof valueIn === 'number') {
@@ -36,7 +40,13 @@ const getAnimatedValue = (valueIn, fallback) => {
 };
 
 export default class AnimatedMapRegion extends AnimatedWithChildren {
-  constructor(valueIn = {}) {
+  latitude: Animated.Value;
+  longitude: Animated.Value;
+  latitudeDelta: Animated.Value;
+  longitudeDelta: Animated.Value;
+
+  // @ts-ignore
+  constructor(valueIn: Region = {}) {
     super();
     this.latitude = getAnimatedValue(valueIn.latitude, defaultValues.latitude);
     this.longitude = getAnimatedValue(
@@ -54,14 +64,18 @@ export default class AnimatedMapRegion extends AnimatedWithChildren {
     this._regionListeners = {};
   }
 
-  setValue(value) {
+  setValue(value: number) {
+    // @ts-ignore
     this.latitude._value = value.latitude;
+    // @ts-ignore
     this.longitude._value = value.longitude;
+    // @ts-ignore
     this.latitudeDelta._value = value.latitudeDelta;
+    // @ts-ignore
     this.longitudeDelta._value = value.longitudeDelta;
   }
 
-  setOffset(offset) {
+  setOffset(offset: Region) {
     this.latitude.setOffset(offset.latitude);
     this.longitude.setOffset(offset.longitude);
     this.latitudeDelta.setOffset(offset.latitudeDelta);
@@ -77,37 +91,51 @@ export default class AnimatedMapRegion extends AnimatedWithChildren {
 
   __getValue() {
     return {
+      // @ts-ignore
       latitude: this.latitude.__getValue(),
+      // @ts-ignore
       longitude: this.longitude.__getValue(),
+      // @ts-ignore
       latitudeDelta: this.latitudeDelta.__getValue(),
+      // @ts-ignore
       longitudeDelta: this.longitudeDelta.__getValue(),
     };
   }
 
   __attach() {
+    // @ts-ignore
     this.latitude.__addChild(this);
+    // @ts-ignore
     this.longitude.__addChild(this);
+    // @ts-ignore
     this.latitudeDelta.__addChild(this);
+    // @ts-ignore
     this.longitudeDelta.__addChild(this);
   }
 
   __detach() {
+    // @ts-ignore
     this.latitude.__removeChild(this);
+    // @ts-ignore
     this.longitude.__removeChild(this);
+    // @ts-ignore
     this.latitudeDelta.__removeChild(this);
+    // @ts-ignore
     this.longitudeDelta.__removeChild(this);
   }
 
-  stopAnimation(callback) {
+  stopAnimation(callback: () => void) {
     this.latitude.stopAnimation();
     this.longitude.stopAnimation();
     this.latitudeDelta.stopAnimation();
     this.longitudeDelta.stopAnimation();
+    // @ts-ignore
     callback && callback(this.__getValue());
   }
 
-  addListener(callback) {
+  addListener(callback: () => void) {
     const id = String(_uniqueId++);
+    // @ts-ignore
     const jointCallback = () => /*{value}*/ callback(this.__getValue());
     this._regionListeners[id] = {
       latitude: this.latitude.addListener(jointCallback),
@@ -118,7 +146,7 @@ export default class AnimatedMapRegion extends AnimatedWithChildren {
     return id;
   }
 
-  removeListener(id) {
+  removeListener(id: string) {
     this.latitude.removeListener(this._regionListeners[id].latitude);
     this.longitude.removeListener(this._regionListeners[id].longitude);
     this.latitudeDelta.removeListener(this._regionListeners[id].latitudeDelta);
@@ -128,13 +156,14 @@ export default class AnimatedMapRegion extends AnimatedWithChildren {
     delete this._regionListeners[id];
   }
 
-  spring(config) {
+  spring(config: Animated.TimingAnimationConfig) {
     const animations = [];
     for (const type of configTypes) {
       if (config.hasOwnProperty(type)) {
         animations.push(
           Animated.spring(this[type], {
             ...config,
+            // @ts-ignore
             toValue: config[type],
             // may help to eliminate some dev warnings and perf issues
             useNativeDriver: !!config?.useNativeDriver,
@@ -145,13 +174,14 @@ export default class AnimatedMapRegion extends AnimatedWithChildren {
     return Animated.parallel(animations);
   }
 
-  timing(config) {
+  timing(config: Animated.TimingAnimationConfig) {
     const animations = [];
     for (const type of configTypes) {
       if (config.hasOwnProperty(type)) {
         animations.push(
           Animated.timing(this[type], {
             ...config,
+            // @ts-ignore
             toValue: config[type],
             // may help to eliminate some dev warnings and perf issues
             useNativeDriver: !!config?.useNativeDriver,

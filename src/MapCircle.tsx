@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import React from 'react';
+import React, { Component } from 'react';
 import {
   ColorPropType,
   ViewPropTypes,
@@ -7,38 +7,33 @@ import {
 import decorateMapComponent, {
   USES_DEFAULT_IMPLEMENTATION,
   SUPPORTED,
+  DecoratedComponent,
 } from './decorateMapComponent';
+import { MapCircleProps } from 'react-native-maps';
 
 const propTypes = {
   ...ViewPropTypes,
 
   /**
-   * An array of coordinates to describe the polygon
+   * The coordinate of the center of the circle
    */
-  coordinates: PropTypes.arrayOf(
-    PropTypes.shape({
-      /**
-       * Latitude/Longitude coordinates
-       */
-      latitude: PropTypes.number.isRequired,
-      longitude: PropTypes.number.isRequired,
-    })
-  ),
+  center: PropTypes.shape({
+    /**
+     * Coordinates for the center of the circle.
+     */
+    latitude: PropTypes.number.isRequired,
+    longitude: PropTypes.number.isRequired,
+  }).isRequired,
 
   /**
-   * Callback that is called when the user presses on the polyline
+   * The radius of the circle to be drawn (in meters)
+   */
+  radius: PropTypes.number.isRequired,
+
+  /**
+   * Callback that is called when the user presses on the circle
    */
   onPress: PropTypes.func,
-
-  /* Boolean to allow a polyline to be tappable and use the
-   * onPress function
-   */
-  tappable: PropTypes.bool,
-
-  /**
-   * The fill color to use for the path.
-   */
-  fillColor: ColorPropType,
 
   /**
    * The stroke width to use for the path.
@@ -51,9 +46,9 @@ const propTypes = {
   strokeColor: ColorPropType,
 
   /**
-   * The stroke colors to use for the path.
+   * The fill color to use for the path.
    */
-  strokeColors: PropTypes.arrayOf(ColorPropType),
+  fillColor: ColorPropType,
 
   /**
    * The order in which this tile overlay is drawn with respect to other overlays. An overlay
@@ -93,15 +88,6 @@ const propTypes = {
   miterLimit: PropTypes.number,
 
   /**
-   * Boolean to indicate whether to draw each segment of the line as a geodesic as opposed to
-   * straight lines on the Mercator projection. A geodesic is the shortest path between two
-   * points on the Earth's surface. The geodesic curve is constructed assuming the Earth is
-   * a sphere.
-   *
-   */
-  geodesic: PropTypes.bool,
-
-  /**
    * The offset (in points) at which to start drawing the dash pattern.
    *
    * Use this property to start drawing a dashed line partway through a segment or gap. For
@@ -132,33 +118,33 @@ const propTypes = {
 const defaultProps = {
   strokeColor: '#000',
   strokeWidth: 1,
-  lineJoin: 'round',
-  lineCap: 'round',
 };
 
-class MapPolyline extends React.Component {
-  setNativeProps(props) {
-    this.polyline.setNativeProps(props);
+class MapCircle extends DecoratedComponent<MapCircleProps> {
+  static propTypes = propTypes;
+  static defaultProps = defaultProps;
+
+  circle: Component | null = null;
+
+  setNativeProps(props: MapCircleProps) {
+    this.circle.setNativeProps(props);
   }
 
   render() {
-    const AIRMapPolyline = this.getAirComponent();
+    const AIRMapCircle = this.getAirComponent();
     return (
-      <AIRMapPolyline
+      <AIRMapCircle
         {...this.props}
         ref={(ref) => {
-          this.polyline = ref;
+          this.circle = ref;
         }}
       />
     );
   }
 }
 
-MapPolyline.propTypes = propTypes;
-MapPolyline.defaultProps = defaultProps;
-
-export default decorateMapComponent(MapPolyline, {
-  componentType: 'Polyline',
+export default decorateMapComponent(MapCircle, {
+  componentType: 'Circle',
   providers: {
     google: {
       ios: SUPPORTED,
