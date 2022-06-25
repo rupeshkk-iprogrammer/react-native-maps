@@ -14,7 +14,7 @@
 #define MERCATOR_RADIUS 85445659.44705395
 #define MERCATOR_OFFSET 268435456
 
-@interface AIRMapManager : RCTViewManager
+@interface AIRMapFabric : RCTViewComponentView
 
 
 

@@ -2,6 +2,10 @@ require 'json'
 
 package = JSON.parse(File.read(File.join(__dir__, 'package.json')))
 
+folly_version = '2021.06.28.00-v2'
+folly_compiler_flags = '-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1 -Wno-comma -Wno-shorten-64-to-32'
+
+
 Pod::Spec.new do |s|
   s.name         = "react-native-google-maps"
   s.version      = package['version']
@@ -19,4 +23,19 @@ Pod::Spec.new do |s|
   s.dependency 'React-Core'
   s.dependency 'GoogleMaps', '6.1.1'
   s.dependency 'Google-Maps-iOS-Utils', '4.1.0'
+
+  s.compiler_flags  = folly_compiler_flags
+  
+  s.pod_target_xcconfig    = {
+    "HEADER_SEARCH_PATHS" => "\"$(PODS_ROOT)/boost\"",
+    "CLANG_CXX_LANGUAGE_STANDARD" => "c++17"
+  }
+
+  s.dependency "React-Core"
+  s.dependency "React-RCTFabric" # This is for fabric component
+  s.dependency "React-Codegen"
+  s.dependency "RCT-Folly", folly_version
+  s.dependency "RCTRequired"
+  s.dependency "RCTTypeSafety"
+  s.dependency "ReactCommon/turbomodule/core"
 end
