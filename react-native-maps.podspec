@@ -7,6 +7,11 @@ folly_compiler_flags = '-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1 
 
 
 Pod::Spec.new do |s|
+
+  s.subspec "Fabric" do |ss|
+    ss.source_files           = "ios/AirMaps/Fabric/*.{h,mm}"
+  end
+
   s.name         = "react-native-maps"
   s.version      = package['version']
   s.summary      = "React Native Mapview component for iOS + Android"
@@ -18,6 +23,7 @@ Pod::Spec.new do |s|
 
   s.source       = { :git => "https://github.com/react-native-maps/react-native-maps.git", :tag=> "v#{s.version}" }
   s.source_files  = "ios/AirMaps/**/*.{h,m,mm}"
+  s.exclude_files           = "ios/AirMaps/Fabric/*.{h,mm}"
 
   s.compiler_flags  = folly_compiler_flags
 

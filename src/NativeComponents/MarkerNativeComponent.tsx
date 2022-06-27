@@ -1,4 +1,4 @@
-import { HostComponent, ViewProps } from 'react-native';
+import { ColorValue, HostComponent, ViewProps } from 'react-native';
 import type {
   Float,
   Int32,
@@ -33,7 +33,7 @@ interface MarkerProps extends ViewProps {
   image?: ImageSource;
   icon?: ImageSource;
   opacity?: Float;
-  pinColor?: string;
+  pinColor?: ColorValue;
   coordinate: LatLng; //| AnimatedRegion;
   centerOffset?: Point;
   calloutOffset?: Point;

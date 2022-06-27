@@ -613,6 +613,15 @@ PODS:
     - RCTTypeSafety
     - React-Codegen
     - React-Core
+    - react-native-maps/Fabric (= 0.30.1)
+    - React-RCTFabric
+    - ReactCommon/turbomodule/core
+  - react-native-maps/Fabric (0.30.1):
+    - RCT-Folly (= 2021.06.28.00-v2)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Codegen
+    - React-Core
     - React-RCTFabric
     - ReactCommon/turbomodule/core
   - React-perflogger (0.69.0)
@@ -886,7 +895,7 @@ SPEC CHECKSUMS:
   React-jsiexecutor: b2a049b9f156342f6037ccb0c8acf69f923d3089
   React-jsinspector: 6aced68014b275b7abd073c9598b0affd0e1669c
   React-logger: bcf33ce10afa135158c72635e621ddb94126c610
-  react-native-maps: df75aafeb8249b8543dbab37cd6922400973c4a2
+  react-native-maps: 3205ce680d0500d97d40eaf33d81e89d534bb8e5
   React-perflogger: aa48956d87bae67fc847acc196fae97928b96cd3
   React-RCTActionSheet: 4eaab2b885130ce9a88c8fdac5f1992315da80f6
   React-RCTAnimation: 5e91e3ceb988838fa43615bb602181be30d2b26e

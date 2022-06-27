@@ -15,16 +15,6 @@
 #import <React/RCTUtils.h>
 #import <React/UIView+React.h>
 
-#import <React/RCTViewComponentView.h>
-#import <react/renderer/components/RNMapsComponents/ComponentDescriptors.h>
-#import <react/renderer/components/RNMapsComponents/Props.h>
-#import <react/renderer/components/RNMapsComponents/RCTComponentViewHelpers.h>
-#import <react/renderer/components/RNMapsComponents/ShadowNodes.h>
-#import "RCTFabricComponentsPlugins.h"
-#import "RCTConvert+AirMapFabric.h"
-#import <React/RCTConversions.h>
-
-using namespace facebook::react;
 
 NSInteger const AIR_CALLOUT_OPEN_ZINDEX_BASELINE = 999;
 
@@ -373,42 +363,6 @@ NSInteger const AIR_CALLOUT_OPEN_ZINDEX_BASELINE = 999;
     }
 }
 
-+ (ComponentDescriptorProvider)componentDescriptorProvider
-{
-    return concreteComponentDescriptorProvider<AIRMapMarkerComponentDescriptor>();
-}
-
-
-- (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
-{
-    // override with null ptr if it's inital render, and oldProps are not defined
-    const auto &oldViewProps = oldProps != nullptr ? *std::static_pointer_cast<AIRMapMarkerProps const>(oldProps):*std::make_shared<AIRMapMarkerProps const>();
-    const auto &newViewProps = *std::static_pointer_cast<AIRMapMarkerProps const>(props);
-
-    NSLog(@"updateProps");
-    
-    
-    if (oldViewProps.coordinate.longitude != newViewProps.coordinate.longitude || oldViewProps.coordinate.latitude != newViewProps.coordinate.latitude) {
-        self.coordinate = (CLLocationCoordinate2D) {
-            newViewProps.coordinate.latitude, newViewProps.coordinate.longitude
-        };
-    }
-    
-    if (oldViewProps.identifier != newViewProps.identifier) {
-        self.identifier = RCTNSStringFromStringNilIfEmpty(newViewProps.identifier);
-    }
-    
-    if (oldViewProps.image != newViewProps.image) {
-        // self.image = 
-    }
-}
-
 
 @end
 
-extern "C" {
-    Class<RCTComponentViewProtocol> AIRMapMarkerCls(void)
-    {
-        return AIRMapMarker.class;
-    }
-}

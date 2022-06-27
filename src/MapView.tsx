@@ -47,7 +47,11 @@ import {
   SnapshotOptions,
 } from 'react-native-maps';
 import AIRGoogleMap from './NativeComponents/AIRGoogleMapNativeComponent';
-import AIRMap, { AIRMapProps } from './NativeComponents/AIRMapNativeComponent';
+import AIRMap, {
+  AIRMapCommands,
+  AIRMapNativeCommands,
+  AIRMapProps,
+} from './NativeComponents/AIRMapNativeComponent';
 
 export const MAP_TYPES = {
   STANDARD: 'standard',
@@ -718,17 +722,21 @@ class MapView extends React.Component<MapViewProps, State> {
     if (Platform.OS === 'android') {
       return NativeModules.AirMapModule.getCamera(this._getHandle());
     } else if (Platform.OS === 'ios') {
-      return this._runCommand('getCamera', []);
+      return this._getCommands().getCamera(this.map);
     }
     return Promise.reject('getCamera not supported on this platform');
   }
 
-  setCamera(camera: Partial<Camera>) {
-    this._runCommand('setCamera', [camera]);
+  setCamera(camera: Camera) {
+    this._getCommands().setCamera(this.map, camera);
   }
 
-  animateCamera(camera: Partial<Camera>, opts?: { duration?: number }) {
-    this._runCommand('animateCamera', [camera, opts ? opts.duration : 500]);
+  animateCamera(camera: Camera, opts?: { duration?: number }) {
+    this._getCommands().animateCamera(
+      this.map,
+      camera,
+      opts ? opts.duration : 500
+    );
   }
 
   animateToNavigation(
@@ -740,37 +748,38 @@ class MapView extends React.Component<MapViewProps, State> {
     console.warn(
       'animateToNavigation() is deprecated, use animateCamera() instead'
     );
-    this._runCommand('animateToNavigation', [
+    this._getCommands().animateToNavigation(
+      this.map,
       location,
       bearing,
       angle,
-      duration || 500,
-    ]);
+      duration || 500
+    );
   }
 
   animateToRegion(region: Region, duration?: number) {
-    this._runCommand('animateToRegion', [region, duration || 500]);
+    this._getCommands().animateToRegion(this.map, region, duration || 500);
   }
 
   animateToCoordinate(latLng: LatLng, duration?: number) {
     console.warn(
       'animateToCoordinate() is deprecated, use animateCamera() instead'
     );
-    this._runCommand('animateToCoordinate', [latLng, duration || 500]);
+    this._getCommands().animateToCoordinate(this.map, latLng, duration || 500);
   }
 
   animateToBearing(bearing: number, duration?: number) {
     console.warn(
       'animateToBearing() is deprecated, use animateCamera() instead'
     );
-    this._runCommand('animateToBearing', [bearing, duration || 500]);
+    this._getCommands().animateToBearing(this.map, bearing, duration || 500);
   }
 
   animateToViewingAngle(angle: number, duration?: number) {
     console.warn(
       'animateToViewingAngle() is deprecated, use animateCamera() instead'
     );
-    this._runCommand('animateToViewingAngle', [angle, duration || 500]);
+    this._getCommands().animateToViewingAngle(this.map, angle, duration || 500);
   }
 
   fitToElements(
@@ -784,7 +793,7 @@ class MapView extends React.Component<MapViewProps, State> {
       animated = true,
     } = options;
 
-    this._runCommand('fitToElements', [edgePadding, animated]);
+    this._getCommands().fitToElements(this.map, edgePadding, animated);
   }
 
   fitToSuppliedMarkers(
@@ -796,7 +805,12 @@ class MapView extends React.Component<MapViewProps, State> {
       animated = true,
     } = options;
 
-    this._runCommand('fitToSuppliedMarkers', [markers, edgePadding, animated]);
+    this._getCommands().fitToSuppliedMarkers(
+      this.map,
+      markers,
+      edgePadding,
+      animated
+    );
   }
 
   fitToCoordinates(
@@ -808,10 +822,15 @@ class MapView extends React.Component<MapViewProps, State> {
       animated = true,
     } = options;
 
-    this._runCommand('fitToCoordinates', [coordinates, edgePadding, animated]);
+    this._getCommands().fitToCoordinates(
+      this.map,
+      coordinates,
+      edgePadding,
+      animated
+    );
   }
 
-  /**
+  /**s
    * Get visible boudaries
    *
    * @return Promise Promise with the bounding box ({ northEast: <LatLng>, southWest: <LatLng> })
@@ -822,17 +841,17 @@ class MapView extends React.Component<MapViewProps, State> {
         this._getHandle()
       );
     } else if (Platform.OS === 'ios') {
-      return await this._runCommand('getMapBoundaries', []);
+      return await this._getCommands().getMapBoundaries(this.map);
     }
     return Promise.reject('getMapBoundaries not supported on this platform');
   }
 
   setMapBoundaries(northEast: Coordinate, southWest: Coordinate) {
-    this._runCommand('setMapBoundaries', [northEast, southWest]);
+    this._getCommands().setMapBoundaries(this.map, northEast, southWest);
   }
 
   setIndoorActiveLevelIndex(activeLevelIndex: number) {
-    this._runCommand('setIndoorActiveLevelIndex', [activeLevelIndex]);
+    this._getCommands().setIndoorActiveLevelIndex(this.map, activeLevelIndex);
   }
 
   /**
@@ -861,15 +880,16 @@ class MapView extends React.Component<MapViewProps, State> {
       const height = arguments[1];
       const region = arguments[2];
       const callback = arguments[3];
-      this._runCommand('takeSnapshot', [
+      this._getCommands().takeSnapshot(
+        this.map,
         width || 0,
         height || 0,
         region || {},
         'png',
         1,
         'legacy',
-        callback,
-      ]);
+        callback
+      );
       return undefined;
     }
 
@@ -894,7 +914,8 @@ class MapView extends React.Component<MapViewProps, State> {
       return NativeModules.AirMapModule.takeSnapshot(this._getHandle(), config);
     } else if (Platform.OS === 'ios') {
       return new Promise((resolve, reject) => {
-        this._runCommand('takeSnapshot', [
+        this._getCommands().takeSnapshot(
+          this.map,
           config.width,
           config.height,
           config.region,
@@ -907,8 +928,8 @@ class MapView extends React.Component<MapViewProps, State> {
             } else {
               resolve(snapshot);
             }
-          },
-        ]);
+          }
+        );
       });
     }
     return Promise.reject('takeSnapshot not supported on this platform');
@@ -930,7 +951,10 @@ class MapView extends React.Component<MapViewProps, State> {
         coordinate
       );
     } else if (Platform.OS === 'ios') {
-      return this._runCommand('getAddressFromCoordinates', [coordinate]);
+      return this._getCommands().getAddressFromCoordinates(
+        this.map,
+        coordinate
+      );
     }
     return Promise.reject('getAddress not supported on this platform');
   }
@@ -951,7 +975,7 @@ class MapView extends React.Component<MapViewProps, State> {
         coordinate
       );
     } else if (Platform.OS === 'ios') {
-      return this._runCommand('pointForCoordinate', [coordinate]);
+      return this._getCommands().pointForCoordinate(this.map, coordinate);
     }
     return Promise.reject('pointForCoordinate not supported on this platform');
   }
@@ -972,7 +996,7 @@ class MapView extends React.Component<MapViewProps, State> {
         point
       );
     } else if (Platform.OS === 'ios') {
-      return this._runCommand('coordinateForPoint', [point]);
+      return this._getCommands().coordinateForPoint(this.map, point);
     }
     return Promise.reject('coordinateForPoint not supported on this platform');
   }
@@ -986,7 +1010,7 @@ class MapView extends React.Component<MapViewProps, State> {
    */
   getMarkersFrames(onlyVisible = false) {
     if (Platform.OS === 'ios') {
-      return this._runCommand('getMarkersFrames', [onlyVisible]);
+      return this._getCommands().getMarkersFrames(this.map, onlyVisible);
     }
     return Promise.reject('getMarkersFrames not supported on this platform');
   }
@@ -1010,6 +1034,9 @@ class MapView extends React.Component<MapViewProps, State> {
       },
     };
   }
+  _getHandle() {
+    throw new Error('Needed for android, need to migrate fom this');
+  }
 
   _uiManagerCommand(name: string) {
     const provider = this.getProvider();
@@ -1025,41 +1052,9 @@ class MapView extends React.Component<MapViewProps, State> {
     return UIManager.getViewManagerConfig(componentName).Commands[name];
   }
 
-  _mapManagerCommand(name: string) {
-    const provider = this.getProvider();
-    const managerName = getAirMapName(provider);
-
-    // TODO according to typescript it's never equals to UI
-    // @ts-ignore
-    if (managerName === 'UI') {
-      const UIManager = NativeModules.UIManager;
-      if (!UIManager.getViewManagerConfig) {
-        // RN < 0.58
-        return UIManager[name];
-      }
-
-      // RN >= 0.58
-      return UIManager.getViewManagerConfig(name);
-    }
-
-    return NativeModules[`${getAirMapName(provider)}Manager`][name];
-  }
-
-  _runCommand(name: string, args: any) {
-    switch (Platform.OS) {
-      case 'android':
-        return NativeModules.UIManager.dispatchViewManagerCommand(
-          this._getHandle(),
-          this._uiManagerCommand(name),
-          args
-        );
-
-      case 'ios':
-        return this._mapManagerCommand(name)(this._getHandle(), ...args);
-
-      default:
-        return Promise.reject(`Invalid platform was passed: ${Platform.OS}`);
-    }
+  _getCommands(): typeof AIRMapCommands {
+    // TODO return proper commands according to provider
+    return AIRMapCommands;
   }
 
   getProvider(): ProviderConstants.Provider {
@@ -1130,10 +1125,10 @@ class MapView extends React.Component<MapViewProps, State> {
       );
     }
 
-    const AIRMap = getAirMapComponent(provider);
+    const AIRMapComponent = getAirMapComponent(provider);
 
     return (
-      <AIRMap
+      <AIRMapComponent
         ref={(ref) => {
           this.map = ref;
         }}
