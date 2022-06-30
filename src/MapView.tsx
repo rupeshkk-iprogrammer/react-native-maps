@@ -51,7 +51,9 @@ import AIRMap, {
   AIRMapCommands,
   AIRMapNativeCommands,
   AIRMapProps,
+  CommandResponse,
 } from './NativeComponents/AIRMapNativeComponent';
+import MapCommands from './MapCommands';
 
 export const MAP_TYPES = {
   STANDARD: 'standard',
@@ -622,6 +624,8 @@ class MapView extends React.Component<MapViewProps, State> {
   static Geojson = Geojson;
   static Animated: RNAnimated.AnimatedComponent<typeof MapView>;
 
+  _commands = new MapCommands();
+
   constructor(props: MapViewProps) {
     super(props);
 
@@ -1052,9 +1056,9 @@ class MapView extends React.Component<MapViewProps, State> {
     return UIManager.getViewManagerConfig(componentName).Commands[name];
   }
 
-  _getCommands(): typeof AIRMapCommands {
+  _getCommands(): MapCommands {
     // TODO return proper commands according to provider
-    return AIRMapCommands;
+    return this._commands;
   }
 
   getProvider(): ProviderConstants.Provider {
@@ -1068,10 +1072,7 @@ class MapView extends React.Component<MapViewProps, State> {
   }
 
   render() {
-    let props: Partial<MapViewProps> & {
-      onChange: Function;
-      handlePanDrag?: boolean;
-    };
+    let props: AIRMapProps;
     let provider = this.getProvider();
 
     if (this.state.isReady) {
@@ -1113,6 +1114,7 @@ class MapView extends React.Component<MapViewProps, State> {
 
     props.region = this.state.region;
     props.initialRegion = this.state.initialRegion;
+    props.onCommandResponse = this._commands.onCommandResponse;
 
     if (Platform.OS === 'android' && this.props.liteMode && AIRMapLite) {
       return (

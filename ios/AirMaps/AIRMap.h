@@ -77,7 +77,7 @@ extern const NSInteger AIRMapMaxZoomLevel;
 
 - (AIRMapMarker*) markerAtPoint:(CGPoint)point;
 - (NSDictionary*) getMarkersFramesWithOnlyVisible:(BOOL)onlyVisible;
+- (void)setUserInterfaceStyle:(NSString*)userInterfaceStyle;
 
-- (void)insertReactFabricSubview:(id<RCTComponent>)subview atIndex:(NSInteger)atIndex;
 
 @end

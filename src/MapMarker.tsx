@@ -340,7 +340,17 @@ class MapMarker extends DecoratedComponent<MarkerProps, {}> {
     }
 
     const AIRMapMarker = this.getAirComponent();
-
+    const { children } = this.props;
+    const calculatedChildren =
+      children == null && this.props.image ? (
+        <Image
+          source={this.props.image}
+          style={{ width: 30, height: 30, backgroundColor: 'blue' }}
+        />
+      ) : (
+        children
+      );
+    // console.log('CH', children, calculatedChildren);
     return (
       <AIRMapMarker
         ref={(ref) => {
@@ -358,7 +368,9 @@ class MapMarker extends DecoratedComponent<MarkerProps, {}> {
             this.props.onPress(event);
           }
         }}
-      />
+      >
+        {calculatedChildren}
+      </AIRMapMarker>
     );
   }
 }

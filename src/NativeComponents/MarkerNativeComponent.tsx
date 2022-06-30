@@ -2,6 +2,8 @@ import { ColorValue, HostComponent, ViewProps } from 'react-native';
 import type {
   Float,
   Int32,
+  Double,
+  BubblingEventHandler,
   // @ts-ignore TODO: remove once there is a .d.ts file with definitions
 } from 'react-native/Libraries/Types/CodegenTypes';
 // @ts-ignore TODO: remove once there is a .d.ts file with definitions
@@ -23,6 +25,19 @@ type LatLng = Readonly<{
 type Point = Readonly<{
   x: Float;
   y: Float;
+}>;
+
+type MapEvent = Readonly<{
+  coordinate: {
+    latitude: Double;
+    longitude: Double;
+  };
+  position: {
+    x: Float;
+    y: Float;
+  };
+  action: string;
+  id?: string;
 }>;
 
 interface MarkerProps extends ViewProps {
@@ -47,16 +62,14 @@ interface MarkerProps extends ViewProps {
   stopPropagation?: boolean;
 
   rotation?: Float;
-  //zIndex?: Int32; some wierd error happens here!
-  /*onPress?: (event: MapEvent<{ action: 'marker-press'; id: string }>) => void;
-  onSelect?: (event: MapEvent<{ action: 'marker-select'; id: string }>) => void;
-  onDeselect?: (
-    event: MapEvent<{ action: 'marker-deselect'; id: string }>
-  ) => void;
-  onCalloutPress?: (event: MapEvent<{ action: 'callout-press' }>) => void;
-  onDragStart?: (event: MapEvent) => void;
-  onDrag?: (event: MapEvent) => void;
-  onDragEnd?: (event: MapEvent) => void;*/
+  zIndexCopy?: Int32; // avoid clash with native zIndex property
+  onPress?: BubblingEventHandler<MapEvent>;
+  onSelect?: BubblingEventHandler<MapEvent>;
+  onDeselect?: BubblingEventHandler<MapEvent>;
+  onCalloutPress?: BubblingEventHandler<MapEvent>;
+  onDragStart?: BubblingEventHandler<MapEvent>;
+  onDrag?: BubblingEventHandler<MapEvent>;
+  onDragEnd?: BubblingEventHandler<MapEvent>;
 }
 
 export default codegenNativeComponent<MarkerProps>('AIRMapMarker');

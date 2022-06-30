@@ -21,6 +21,9 @@
 #import <react/renderer/components/RNMapsComponents/ShadowNodes.h>
 #import "RCTFabricComponentsPlugins.h"
 #import "RCTConvert+AirMapFabric.h"
+#import <React/RCTImageResponseDelegate.h>
+#import <React/RCTImageResponseObserverProxy.h>
+#import <React/RCTImageLoader.h>
 #import <React/RCTConversions.h>
 
 using namespace facebook::react;
@@ -31,6 +34,7 @@ using namespace facebook::react;
 
 @implementation AIRMapMarkerFabric {
     AIRMapMarker *_marker;
+   
 }
 
 
@@ -79,8 +83,12 @@ using namespace facebook::react;
         _marker.identifier = RCTNSStringFromStringNilIfEmpty(newViewProps.identifier);
     }
     
+    if (oldViewProps.title != newViewProps.title) {
+        _marker.title = RCTNSStringFromStringNilIfEmpty(newViewProps.title);
+    }
+    
     if (oldViewProps.image != newViewProps.image) {
-        // self.image = 
+     //   _marker.imageSrc = RCTNSStringFromStringNilIfEmpty(newViewProps.image.uri);
     }
     
     if (oldViewProps.pinColor != newViewProps.pinColor) {
@@ -89,6 +97,19 @@ using namespace facebook::react;
     
     [super updateProps: props oldProps:oldProps];
 }
+
+
+- (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+    NSLog(@"mount marker child");
+    [_marker insertReactSubview: childComponentView atIndex: index];
+}
+
+- (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+    [_marker removeReactSubview: childComponentView];
+}
+
 
 
 @end

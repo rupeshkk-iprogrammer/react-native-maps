@@ -117,6 +117,32 @@ const NSInteger AIRMapMaxZoomLevel = 20;
 - (void)insertReactSubview:(id<RCTComponent>)subview atIndex:(NSInteger)atIndex {
     // Our desired API is to pass up markers/overlays as children to the mapview component.
     // This is where we intercept them and do the appropriate underlying mapview action.
+#if RCT_NEW_ARCH_ENABLED
+    __weak RCTViewComponentView * componentView = subview;
+    if ([subview isKindOfClass:[AIRMapMarkerFabric class]]) {
+        [self addAnnotation:(id <MKAnnotation>) componentView.contentView];
+    } else if ([subview isKindOfClass:[AIRMapPolyline class]]) {
+        [self addOverlay:(id<MKOverlay>)componentView.contentView];
+    } else if ([subview isKindOfClass:[AIRMapPolygon class]]) {
+        [self addOverlay:(id<MKOverlay>)componentView.contentView];
+    } else if ([subview isKindOfClass:[AIRMapCircle class]]) {
+        [self addOverlay:(id<MKOverlay>)componentView.contentView];
+    } else if ([subview isKindOfClass:[AIRMapUrlTile class]]) {
+        [self addOverlay:(id<MKOverlay>)componentView.contentView];
+    }else if ([subview isKindOfClass:[AIRMapWMSTile class]]) {
+        [self addOverlay:(id<MKOverlay>)componentView.contentView];
+    } else if ([subview isKindOfClass:[AIRMapLocalTile class]]) {
+        [self addOverlay:(id<MKOverlay>)componentView.contentView];
+    } else if ([subview isKindOfClass:[AIRMapOverlay class]]) {
+        [self addOverlay:(id<MKOverlay>)componentView.contentView];
+    } else {
+        // TODO: should it be componentView.contentView or just subview, not sure ATM
+        NSArray<id<RCTComponent>> *childSubviews = [subview reactSubviews];
+        for (int i = 0; i < childSubviews.count; i++) {
+          [self insertReactSubview:(UIView *)childSubviews[i] atIndex:atIndex];
+        }
+    }
+#else
     if ([subview isKindOfClass:[AIRMapMarker class]]) {
         [self addAnnotation:(id <MKAnnotation>) subview];
     } else if ([subview isKindOfClass:[AIRMapPolyline class]]) {
@@ -141,56 +167,20 @@ const NSInteger AIRMapMaxZoomLevel = 20;
         ((AIRMapOverlay *)subview).map = self;
         [self addOverlay:(id<MKOverlay>)subview];
     } else {
+       
         NSArray<id<RCTComponent>> *childSubviews = [subview reactSubviews];
         for (int i = 0; i < childSubviews.count; i++) {
           [self insertReactSubview:(UIView *)childSubviews[i] atIndex:atIndex];
         }
     }
-    [_reactSubviews insertObject:(UIView *)subview atIndex:(NSUInteger) atIndex];
-}
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wobjc-missing-super-calls"
-- (void)insertReactFabricSubview:(id<RCTComponent>)subview atIndex:(NSInteger)atIndex {
-    // Our desired API is to pass up markers/overlays as children to the mapview component.
-    // This is where we intercept them and do the appropriate underlying mapview action.
-    if ([subview isKindOfClass:[AIRMapMarkerFabric class]]) {
-        __weak RCTViewComponentView * componentView = subview;
-        [self addAnnotation:(id <MKAnnotation>) componentView.contentView];
-    } else if ([subview isKindOfClass:[AIRMapPolyline class]]) {
-        ((AIRMapPolyline *)subview).map = self;
-        [self addOverlay:(id<MKOverlay>)subview];
-    } else if ([subview isKindOfClass:[AIRMapPolygon class]]) {
-        ((AIRMapPolygon *)subview).map = self;
-        [self addOverlay:(id<MKOverlay>)subview];
-    } else if ([subview isKindOfClass:[AIRMapCircle class]]) {
-        ((AIRMapCircle *)subview).map = self;
-        [self addOverlay:(id<MKOverlay>)subview];
-    } else if ([subview isKindOfClass:[AIRMapUrlTile class]]) {
-        ((AIRMapUrlTile *)subview).map = self;
-        [self addOverlay:(id<MKOverlay>)subview];
-    }else if ([subview isKindOfClass:[AIRMapWMSTile class]]) {
-        ((AIRMapWMSTile *)subview).map = self;
-        [self addOverlay:(id<MKOverlay>)subview];
-    } else if ([subview isKindOfClass:[AIRMapLocalTile class]]) {
-        ((AIRMapLocalTile *)subview).map = self;
-        [self addOverlay:(id<MKOverlay>)subview];
-    } else if ([subview isKindOfClass:[AIRMapOverlay class]]) {
-        ((AIRMapOverlay *)subview).map = self;
-        [self addOverlay:(id<MKOverlay>)subview];
-    } else {
-        NSArray<id<RCTComponent>> *childSubviews = [subview reactSubviews];
-        for (int i = 0; i < childSubviews.count; i++) {
-          [self insertReactSubview:(UIView *)childSubviews[i] atIndex:atIndex];
-        }
-    }
+#endif
     [_reactSubviews insertObject:(UIView *)subview atIndex:(NSUInteger) atIndex];
 }
 
 
 - (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
 {
-  //[childComponentView removeFromSuperview];
+ // [childComponentView removeFromSuperview];
 }
 
 
@@ -202,6 +192,32 @@ const NSInteger AIRMapMaxZoomLevel = 20;
 - (void)removeReactSubview:(id<RCTComponent>)subview {
     // similarly, when the children are being removed we have to do the appropriate
     // underlying mapview action here.
+#if RCT_NEW_ARCH_ENABLED
+    __weak RCTViewComponentView * componentView = subview;
+    if ([subview isKindOfClass:[AIRMapMarkerFabric class]]) {
+        [self removeAnnotation:(id <MKAnnotation>)componentView.contentView];
+    } else if ([subview isKindOfClass:[AIRMapPolyline class]]) {
+        [self removeOverlay:(id <MKOverlay>) componentView.contentView];
+    } else if ([subview isKindOfClass:[AIRMapPolygon class]]) {
+        [self removeOverlay:(id <MKOverlay>) componentView.contentView];
+    } else if ([subview isKindOfClass:[AIRMapCircle class]]) {
+        [self removeOverlay:(id <MKOverlay>) componentView.contentView];
+    } else if ([subview isKindOfClass:[AIRMapUrlTile class]]) {
+        [self removeOverlay:(id <MKOverlay>) componentView.contentView];
+    } else if ([subview isKindOfClass:[AIRMapWMSTile class]]) {
+        [self removeOverlay:(id <MKOverlay>) componentView.contentView];
+    } else if ([subview isKindOfClass:[AIRMapLocalTile class]]) {
+        [self removeOverlay:(id <MKOverlay>) componentView.contentView];
+    } else if ([subview isKindOfClass:[AIRMapOverlay class]]) {
+        [self removeOverlay:(id <MKOverlay>) componentView.contentView];
+    } else {
+        // TODO: should it be componentView.contentView or just subview, not sure ATM
+        NSArray<id<RCTComponent>> *childSubviews = [subview reactSubviews];
+        for (int i = 0; i < childSubviews.count; i++) {
+          [self removeReactSubview:(UIView *)childSubviews[i]];
+        }
+    }
+#else
     if ([subview isKindOfClass:[AIRMapMarker class]]) {
         [self removeAnnotation:(id<MKAnnotation>)subview];
     } else if ([subview isKindOfClass:[AIRMapPolyline class]]) {
@@ -224,8 +240,11 @@ const NSInteger AIRMapMaxZoomLevel = 20;
           [self removeReactSubview:(UIView *)childSubviews[i]];
         }
     }
+#endif
     [_reactSubviews removeObject:(UIView *)subview];
 }
+
+
 #pragma clang diagnostic pop
 
 #pragma clang diagnostic push

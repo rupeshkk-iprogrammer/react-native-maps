@@ -6,6 +6,13 @@ folly_version = '2021.06.28.00-v2'
 folly_compiler_flags = '-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1 -Wno-comma -Wno-shorten-64-to-32'
 
 
+fabric_enabled = ENV['RCT_NEW_ARCH_ENABLED'] == '1'
+
+fabric_flags = ''
+if fabric_enabled
+  fabric_flags = '-DRN_FABRIC_ENABLED -DRCT_NEW_ARCH_ENABLED'
+end
+
 Pod::Spec.new do |s|
 
   s.subspec "Fabric" do |ss|
@@ -25,7 +32,7 @@ Pod::Spec.new do |s|
   s.source_files  = "ios/AirMaps/**/*.{h,m,mm}"
   s.exclude_files           = "ios/AirMaps/Fabric/*.{h,mm}"
 
-  s.compiler_flags  = folly_compiler_flags
+  s.compiler_flags  = folly_compiler_flags + " " + fabric_flags
 
   s.pod_target_xcconfig    = {
     "HEADER_SEARCH_PATHS" => "\"$(PODS_ROOT)/boost\"",

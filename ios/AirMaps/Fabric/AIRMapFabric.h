@@ -28,5 +28,6 @@
                                  centerCoordinate:(CLLocationCoordinate2D)centerCoordinate
 								                     andZoomLevel:(double)zoomLevel;
 - (double) zoomLevel:(AIRMap *)mapView;
+- (void) sendResponseForCommand: (NSString*) uuid withJson: (NSDictionary*) json;
 
 @end

@@ -108,6 +108,14 @@ static NSString *const RCTMapViewKey = @"MapView";
     return self;
 }
 
+- (void)prepareForRecycle
+{
+ /*   AIRMapShadowNode::ConcreteState::Shared _state;
+    _state = std::static_pointer_cast<AIRMapShadowNode::ConcreteState const>(state);
+  _state.reset();*/
+  [super prepareForRecycle];
+}
+
 
 
 #pragma mark exported MapView methods
@@ -946,7 +954,8 @@ static int kDragCenterContext;
     }
     // RCT_EXPORT_VIEW_PROPERTY(userInterfaceStyle, NSString)
     if (oldViewProps.userInterfaceStyle != newViewProps.userInterfaceStyle) {
-      //  [self._map.setUserInterfaceStyle: RCTNSStringFromStringNilIfEmpty(newViewProps.userInterfaceStyle)];
+        
+        [self._map setUserInterfaceStyle: RCTNSStringFromStringNilIfEmpty(newViewProps.userInterfaceStyle)];
     }
     // RCT_EXPORT_VIEW_PROPERTY(followsUserLocation, BOOL)
     if (oldViewProps.followsUserLocation != newViewProps.followsUserLocation) {
@@ -1045,36 +1054,307 @@ static int kDragCenterContext;
 
 - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
 {
-    NSLog(@"mount");
-  //  [self.contentView insertSubview:childComponentView atIndex:index];
-    [self._map insertReactFabricSubview: childComponentView atIndex: index];
-//   [_containerView insertSubview:childComponentView atIndex:index];
+    [self._map insertReactSubview: childComponentView atIndex: index];
 }
 
 - (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
 {
-  [childComponentView removeFromSuperview];
+    [self._map removeReactSubview: childComponentView];
 }
 
-- (void) getCamera {
-    [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
-        id view = viewRegistry[reactTag];
-        AIRMap *mapView = (AIRMap *)view;
-        if (![view isKindOfClass:[AIRMap class]]) {
-            reject(@"Invalid argument", [NSString stringWithFormat:@"Invalid view returned from registry, expecting AIRMap, got: %@", view], NULL);
-        } else {
-            MKMapCamera *camera = [mapView camera];
-            resolve(@{
-                      @"center": @{
-                              @"latitude": @(camera.centerCoordinate.latitude),
-                              @"longitude": @(camera.centerCoordinate.longitude),
-                      },
-                      @"pitch": @(camera.pitch),
-                      @"heading": @(camera.heading),
-                      @"altitude": @(camera.altitude),
-            });
-        }
+- (void) sendResponseForCommand: (NSString*) uuid withJson: (NSDictionary*) json {
+    NSError *error;
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:json
+                                                       options:NSJSONWritingPrettyPrinted // Pass 0 if you don't care about the readability of the generated string
+                                                         error:&error];
+
+    if (! jsonData) {
+        NSLog(@"Got an error: %@", error);
+    } else {
+        NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+        auto value = (AIRMapEventEmitter::OnCommandResponse) {
+            std::string([uuid UTF8String]), std::string([jsonString UTF8String])
+        };
+        std::static_pointer_cast<AIRMapEventEmitter const>(_eventEmitter)->onCommandResponse(value);
+        
+    }
+}
+
+- (id) jsonToDict: (NSString*) s {
+    NSData * data = [s dataUsingEncoding:NSUTF8StringEncoding];
+    NSError * error=nil;
+    id parsedThing = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
+    return parsedThing;
+}
+
+
+- (void)getCamera:(NSString *)commandUUID {
+    MKMapCamera * camera = [self._map camera];
+    NSDictionary * json = @{
+        @"center": @{
+                @"latitude": @(camera.centerCoordinate.latitude),
+                @"longitude": @(camera.centerCoordinate.longitude),
+        },
+        @"pitch": @(camera.pitch),
+        @"heading": @(camera.heading),
+        @"altitude": @(camera.altitude),
+    };
+    
+    [self sendResponseForCommand:commandUUID withJson: json];
+}
+
+- (void)setCamera:(NSString *)commandUUID camera:(NSString *)cameraJSON {
+    
+    // Merge the changes given with the current camera
+    AIRMap * mapView = (AIRMap *)self.contentView;
+    MKMapCamera *camera = [RCTConvert MKMapCameraWithDefaults:[self jsonToDict:cameraJSON] existingCamera:[mapView camera]];
+
+    // don't emit region change events when we are setting the camera
+    BOOL originalIgnore = mapView.ignoreRegionChanges;
+    mapView.ignoreRegionChanges = YES;
+    [mapView setCamera:camera animated:NO];
+    mapView.ignoreRegionChanges = originalIgnore;
+}
+
+- (void)animateCamera:(NSString *)commandUUID camera:(NSString *)cameraJSON duration:(float)duration {
+    AIRMap *mapView = (AIRMap *)self.contentView;
+
+    // Merge the changes given with the current camera
+    MKMapCamera *camera = [RCTConvert MKMapCameraWithDefaults:[self jsonToDict:cameraJSON] existingCamera:[mapView camera]];
+
+    // don't emit region change events when we are setting the camera
+    BOOL originalIgnore = mapView.ignoreRegionChanges;
+    mapView.ignoreRegionChanges = YES;
+    [AIRMap animateWithDuration:duration/1000 animations:^{
+        [mapView setCamera:camera animated:YES];
+    } completion:^(BOOL finished){
+        mapView.ignoreRegionChanges = originalIgnore;
     }];
+}
+- (void)animateToNavigation:(NSString *)commandUUID location:(NSString *)regionJSON bearing:(float)bearing angle:(float)angle duration:(float)duration {
+    AIRMap *mapView = (AIRMap *)self.contentView;
+    MKMapCamera *mapCamera = [[mapView camera] copy];
+     [mapCamera setPitch:angle];
+     [mapCamera setHeading:bearing];
+    
+    NSDictionary * dict = [self jsonToDict:regionJSON];
+    MKCoordinateRegion region = [RCTConvert MKCoordinateRegion: dict];
+
+    [AIRMap animateWithDuration:duration/1000 animations:^{
+        [mapView setRegion: region animated:YES];
+        [mapView setCamera:mapCamera animated:YES];
+    }];
+}
+- (void)animateToRegion:(NSString *)commandUUID region:(NSString *)regionJSON duration:(float)duration {
+    AIRMap *mapView = (AIRMap *)self.contentView;
+    MKCoordinateRegion region = [RCTConvert MKCoordinateRegion: [self jsonToDict:regionJSON]];
+    [AIRMap animateWithDuration:duration/1000 animations:^{
+        [mapView setRegion:region animated:YES];
+    }];
+}
+
+- (void)animateToCoordinate:(NSString *)commandUUID latLngJSON:(NSString *)latLng duration:(float)duration {
+    AIRMap *mapView = (AIRMap *)self.contentView;
+    MKCoordinateRegion region;
+    NSDictionary * latLngDict = [self jsonToDict:latLng];
+    
+    region.span = mapView.region.span;
+    region.center = [RCTConvert CLLocationCoordinate2D: latLngDict];
+    [AIRMap animateWithDuration:duration/1000 animations:^{
+        [mapView setRegion:region animated:YES];
+    }];
+}
+- (void)animateToBearing:(NSString *)commandUUID bearing:(float)bearing duration:(float)duration {
+    AIRMap *mapView = (AIRMap *)self.contentView;
+
+    MKMapCamera *mapCamera = [[mapView camera] copy];
+    [mapCamera setHeading:bearing];
+
+    [AIRMap animateWithDuration:duration/1000 animations:^{
+        [mapView setCamera:mapCamera animated:YES];
+    }];
+}
+- (void)animateToViewingAngle:(NSString *)commandUUID angle:(float)angle duration:(float)duration {
+    AIRMap *mapView = (AIRMap *)self.contentView;
+
+    MKMapCamera *mapCamera = [[mapView camera] copy];
+    [mapCamera setPitch:angle];
+
+    [AIRMap animateWithDuration:duration/1000 animations:^{
+        [mapView setCamera:mapCamera animated:YES];
+    }];
+}
+- (void)fitToElements:(NSString *)commandUUID edgePadding:(NSString *)edgePadding duration:(float)duration animated:(BOOL)animated {
+    AIRMap *mapView = (AIRMap *)self.contentView;
+    // TODO(lmr): we potentially want to include overlays here... and could concat the two arrays together.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.1 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        [mapView showAnnotations:mapView.annotations animated:animated];
+    });
+}
+- (void)fitToSuppliedMarkers:(NSString *)commandUUID markers:(NSString *)markersJSON edgePadding:(NSString *)edgePaddingJSON animated:(BOOL)animated {
+    AIRMap *mapView = (AIRMap *)self.contentView;
+    // TODO(lmr): we potentially want to include overlays here... and could concat the two arrays together.
+    // id annotations = mapView.annotations;
+    
+    NSArray * markers= [self jsonToDict:markersJSON];
+
+    NSPredicate *filterMarkers = [NSPredicate predicateWithBlock:^BOOL(id evaluatedObject, NSDictionary *bindings) {
+        AIRMapMarker *marker = (AIRMapMarker *)evaluatedObject;
+        return [marker isKindOfClass:[AIRMapMarker class]] && [markers containsObject:marker.identifier];
+    }];
+
+    NSArray *filteredMarkers = [mapView.annotations filteredArrayUsingPredicate:filterMarkers];
+
+    [mapView showAnnotations:filteredMarkers animated:animated];
+}
+- (void)fitToCoordinates:(NSString *)commandUUID coordinates:(NSString *)coordinatesJSON edgePadding:(NSString *)edgePaddingJSON animated:(BOOL)animated {
+    AIRMap *mapView = (AIRMap *)self.contentView;
+    
+    NSDictionary* edgePadding = [self jsonToDict:edgePaddingJSON];
+    NSArray* coordinates = [self jsonToDict:coordinatesJSON];
+
+    // Create Polyline with coordinates
+    CLLocationCoordinate2D coords[coordinates.count];
+    for(int i = 0; i < coordinates.count; i++)
+    {
+        // TODO fix that
+        // coords[i] = coordinates[i].coordinate;
+    }
+    MKPolyline *polyline = [MKPolyline polylineWithCoordinates:coords count:coordinates.count];
+
+    // Set Map viewport
+    CGFloat top = [RCTConvert CGFloat:edgePadding[@"top"]];
+    CGFloat right = [RCTConvert CGFloat:edgePadding[@"right"]];
+    CGFloat bottom = [RCTConvert CGFloat:edgePadding[@"bottom"]];
+    CGFloat left = [RCTConvert CGFloat:edgePadding[@"left"]];
+
+    [mapView setVisibleMapRect:[polyline boundingMapRect] edgePadding:UIEdgeInsetsMake(top, left, bottom, right) animated:animated];
+}
+- (void)getMapBoundaries:(NSString *)commandUUID {
+    AIRMap *mapView = (AIRMap *)self.contentView;
+    NSArray *boundingBox = [mapView getMapBoundaries];
+
+    NSDictionary * response =@{
+        @"northEast" : @{
+            @"longitude" : boundingBox[0][0],
+            @"latitude" : boundingBox[0][1]
+        },
+        @"southWest" : @{
+            @"longitude" : boundingBox[1][0],
+            @"latitude" : boundingBox[1][1]
+        }
+    };
+    [self sendResponseForCommand:commandUUID withJson: response];
+}
+- (void)setMapBoundaries:(NSString *)commandUUID northEast:(NSString *)northEast southWest:(NSString *)southWest {
+    NSLog(@"setMapBoundaries is unimplemented on AIRMap");
+}
+- (void)setIndoorActiveLevelIndex:(NSString *)commandUUID activeLevelIndex:(float)activeLevelIndex {
+    NSLog(@"setIndoorActiveLevelIndex is unimplemented on AIRMap");
+}
+/*
+- (void)takeSnapshot:(NSString *)commandUUID width:(float)width height:(float)height region:(NSString *)regionJSON format:(NSString *)format quality:(NSInteger)quality result:(NSString *)result {
+    AIRMap *mapView = (AIRMap *)self.contentView;
+    MKCoordinateRegion region = [RCTConvert MKCoordinateRegion:  [self jsonToDict:regionJSON]];
+    MKMapSnapshotOptions *options = [[MKMapSnapshotOptions alloc] init];
+
+    options.mapType = mapView.mapType;
+    options.region = (region.center.latitude && region.center.longitude) ? region : mapView.region;
+    options.size = CGSizeMake(
+      (width == 0) ? mapView.bounds.size.width : width,
+      (height == 0) ? mapView.bounds.size.height : height
+    );
+    options.scale = [[UIScreen mainScreen] scale];
+
+    MKMapSnapshotter *snapshotter = [[MKMapSnapshotter alloc] initWithOptions:options];
+
+    [self takeMapSnapshot:mapView
+        snapshotter:snapshotter
+        format:format
+        quality:quality
+        result:result
+        callback:callback];
+}*/
+
+- (void)getAddressFromCoordinates:(NSString *)commandUUID coordinate:(NSString *)coordinateJSON {
+    AIRMap *view = (AIRMap *)self.contentView;
+    
+    NSDictionary* coordinate = [self jsonToDict:coordinateJSON];
+   
+        if (coordinate == nil ||
+            ![[coordinate allKeys] containsObject:@"latitude"] ||
+            ![[coordinate allKeys] containsObject:@"longitude"]) {
+            // reject(@"Invalid argument", [NSString stringWithFormat:@"Invalid coordinate format"], NULL);
+        }
+        CLLocation *location = [[CLLocation alloc] initWithLatitude:[coordinate[@"latitude"] doubleValue]
+                                                          longitude:[coordinate[@"longitude"] doubleValue]];
+        CLGeocoder *geoCoder = [[CLGeocoder alloc] init];
+        [geoCoder reverseGeocodeLocation:location
+                       completionHandler:^(NSArray *placemarks, NSError *error) {
+                if (error == nil && [placemarks count] > 0){
+                    CLPlacemark *placemark = placemarks[0];
+                    NSDictionary * response = @{
+                        @"name" : [NSString stringWithFormat:@"%@", placemark.name],
+                        @"thoroughfare" : [NSString stringWithFormat:@"%@", placemark.thoroughfare],
+                        @"subThoroughfare" : [NSString stringWithFormat:@"%@", placemark.subThoroughfare],
+                        @"locality" : [NSString stringWithFormat:@"%@", placemark.locality],
+                        @"subLocality" : [NSString stringWithFormat:@"%@", placemark.subLocality],
+                        @"administrativeArea" : [NSString stringWithFormat:@"%@", placemark.administrativeArea],
+                        @"subAdministrativeArea" : [NSString stringWithFormat:@"%@", placemark.subAdministrativeArea],
+                        @"postalCode" : [NSString stringWithFormat:@"%@", placemark.postalCode],
+                        @"countryCode" : [NSString stringWithFormat:@"%@", placemark.ISOcountryCode],
+                        @"country" : [NSString stringWithFormat:@"%@", placemark.country],
+                    };
+                    [self sendResponseForCommand:commandUUID withJson: response];
+                } else {
+                    // reject(@"Invalid argument", [NSString stringWithFormat:@"Can not get address location"], NULL);
+                }
+        }];
+}
+- (void)pointForCoordinate:(NSString *)commandUUID coordinate:(NSString *)coordinateJSON {
+    AIRMap *mapView = (AIRMap *)self._map;
+    NSDictionary* coordinate = [self jsonToDict:coordinateJSON];
+   
+    CGPoint touchPoint = [mapView convertCoordinate:
+                          CLLocationCoordinate2DMake(
+                                                     [coordinate[@"latitude"] doubleValue],
+                                                     [coordinate[@"longitude"] doubleValue]
+                                                     )
+                                      toPointToView:mapView];
+    NSDictionary* response =@{
+              @"x": @(touchPoint.x),
+              @"y": @(touchPoint.y),
+              };
+    
+    [self sendResponseForCommand:commandUUID withJson: response];
+}
+- (void)coordinateForPoint:(NSString *)commandUUID coordinate:(NSString *)pointJSON {
+    AIRMap *mapView = (AIRMap *)self.contentView;
+    NSDictionary* point = [self jsonToDict:pointJSON];
+   
+    CLLocationCoordinate2D coordinate = [mapView convertPoint:
+                                         CGPointMake(
+                                                     [point[@"x"] doubleValue],
+                                                     [point[@"y"] doubleValue]
+                                                     )
+                                         toCoordinateFromView:mapView];
+
+    NSDictionary* response  =@{
+              @"latitude": @(coordinate.latitude),
+              @"longitude": @(coordinate.longitude),
+              };
+    [self sendResponseForCommand:commandUUID withJson: response];
+    
+}
+- (void)getMarkersFrames:(NSString *)commandUUID onlyVisible:(BOOL)onlyVisible {
+    AIRMap *mapView = (AIRMap *)self.contentView;
+    NSDictionary* response = [mapView getMarkersFramesWithOnlyVisible:onlyVisible];
+    [self sendResponseForCommand:commandUUID withJson: response];
+}
+
+- (void)handleCommand:(const NSString *)commandName args:(const NSArray *)args
+{
+    RCTAIRMapHandleCommand(self, commandName, args);
 }
 
 

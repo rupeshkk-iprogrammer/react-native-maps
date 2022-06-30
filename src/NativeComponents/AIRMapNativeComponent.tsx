@@ -2,8 +2,10 @@
 import { ColorValue, HostComponent, ViewProps } from 'react-native';
 import type {
   Float,
+  Double,
   Int32,
   BubblingEventHandler,
+  DirectEventHandler,
   // @ts-ignore TODO: remove once there is a .d.ts file with definitions
 } from 'react-native/Libraries/Types/CodegenTypes';
 
@@ -42,15 +44,15 @@ type EdgePadding = Readonly<{
 }>;
 
 type Region = Readonly<{
-  latitude: Float;
-  longitude: Float;
-  latitudeDelta: Float;
-  longitudeDelta: Float;
+  latitude: Double;
+  longitude: Double;
+  latitudeDelta: Double;
+  longitudeDelta: Double;
 }>;
 
 type LatLng = Readonly<{
-  latitude: Float;
-  longitude: Float;
+  latitude: Double;
+  longitude: Double;
 }>;
 
 type Camera = Readonly<{
@@ -61,32 +63,18 @@ type Camera = Readonly<{
   altitude: Float;
 }>;
 
-/*
-type MapEvent = Readonly<{
-  coordinate: {
-    latitude: Float;
-    longitude: Float;
-  };
-  position: {
-    x: Float;
-    y: Float;
-  };
-  action: string;
-  id?: string;
-}>;*/
-
 type KmlMarker = Readonly<{
   id: String;
   title: String;
   description: String;
-  coordinate: { latitude: Float; longitude: Float };
+  coordinate: { latitude: Double; longitude: Double };
   position: { x: Float; y: Float };
 }>;
 
 type MapEvent = Readonly<{
   coordinate: {
-    latitude: Float;
-    longitude: Float;
+    latitude: Double;
+    longitude: Double;
   };
   position: {
     x: Float;
@@ -98,8 +86,8 @@ type MapEvent = Readonly<{
 
 type MapEventWithAction = Readonly<{
   coordinate: {
-    latitude: Float;
-    longitude: Float;
+    latitude: Double;
+    longitude: Double;
   };
   position: {
     x: Float;
@@ -111,8 +99,8 @@ type MapEventWithAction = Readonly<{
 
 type EventUserLocation = Readonly<{
   coordinate: {
-    latitude: Float;
-    longitude: Float;
+    latitude: Double;
+    longitude: Double;
     altitude: Float;
     timestamp: Float;
     accuracy: Float;
@@ -132,6 +120,11 @@ type IndoorBuilding = Readonly<{
   underground: boolean;
   activeLevelIndex: Float;
   levels: Array<IndoorLevel>;
+}>;
+
+export type CommandResponse = Readonly<{
+  commandUUID: string;
+  json: string;
 }>;
 
 export interface AIRMapProps extends ViewProps {
@@ -219,103 +212,130 @@ export interface AIRMapProps extends ViewProps {
   minZoomLevel?: Float;
   maxZoomLevel?: Float;
   kmlSrc?: string;
+
+  onCommandResponse?: DirectEventHandler<CommandResponse>;
 }
 
 export interface AIRMapNativeCommands {
-  getCamera: (viewRef: React.ElementRef<any>) => Promise<Camera>;
-  /*setCamera: (viewRef: React.ElementRef<any>, camera: Camera) => void;
+  getCamera: (
+    viewRef: React.ElementRef<any>,
+    commandUUID: string
+  ) => Promise<Camera>;
+  setCamera: (
+    viewRef: React.ElementRef<any>,
+    commandUUID: string,
+    camera: string
+  ) => void;
   animateCamera: (
     viewRef: React.ElementRef<any>,
-    camera: Camera,
+    commandUUID: string,
+    camera: string,
     duration?: Float
   ) => void;
   animateToNavigation: (
     viewRef: React.ElementRef<any>,
-    location: LatLng,
-    bearing: number,
-    angle: number,
-    duration?: number
+    commandUUID: string,
+    location: string,
+    bearing: Float,
+    angle: Float,
+    duration?: Float
   ) => void;
   animateToRegion: (
     viewRef: React.ElementRef<any>,
-    region: Region,
+    commandUUID: string,
+    region: string,
     duration?: Float
   ) => void;
   animateToCoordinate: (
     viewRef: React.ElementRef<any>,
-    latLng: LatLng,
+    commandUUID: string,
+    latLng: string,
     duration?: Float
   ) => void;
   animateToBearing: (
     viewRef: React.ElementRef<any>,
+    commandUUID: string,
     bearing: Float,
     duration?: Float
   ) => void;
   animateToViewingAngle: (
     viewRef: React.ElementRef<any>,
+    commandUUID: string,
     angle: Float,
     duration?: Float
   ) => void;
   fitToElements: (
     viewRef: React.ElementRef<any>,
-    edgePadding: EdgePadding,
+    commandUUID: string,
+    edgePadding: string,
     duration?: Float
   ) => void;
   fitToSuppliedMarkers: (
     viewRef: React.ElementRef<any>,
-    markers: string[],
-    edgePadding: EdgePadding,
+    commandUUID: string,
+    markers: string,
+    edgePadding: string,
     animated?: boolean
   ) => void;
   fitToCoordinates: (
     viewRef: React.ElementRef<any>,
-    coordinates: Coordinate[],
-    edgePadding: EdgePadding,
+    commandUUID: string,
+    coordinates: string,
+    edgePadding: string,
     animated?: boolean
   ) => void;
-  getMapBoundaries: (viewRef: React.ElementRef<any>) => void;
+  getMapBoundaries: (
+    viewRef: React.ElementRef<any>,
+    commandUUID: string
+  ) => void;
   setMapBoundaries: (
     viewRef: React.ElementRef<any>,
-    northEast: Coordinate,
-    southWest: Coordinate
+    commandUUID: string,
+    northEast: string,
+    southWest: string
   ) => void;
   setIndoorActiveLevelIndex: (
     viewRef: React.ElementRef<any>,
+    commandUUID: string,
     activeLevelIndex: Float
   ) => void;
   takeSnapshot: (
     viewRef: React.ElementRef<any>,
+    commandUUID: string,
     width: Float,
     height: Float,
-    region: Region | {},
+    region: string,
     format: string,
     quality: Int32,
-    result: string,
-    callback: (err: any, snapshot: string) => void
+    result: string
   ) => void;
   getAddressFromCoordinates: (
     viewRef: React.ElementRef<any>,
-    coordinate: Coordinate
+    commandUUID: string,
+    coordinate: string
   ) => void;
   pointForCoordinate: (
     viewRef: React.ElementRef<any>,
-    coordinate: Coordinate
+    commandUUID: string,
+    coordinate: string
   ) => Promise<Point>;
   coordinateForPoint: (
     viewRef: React.ElementRef<any>,
-    coordinate: Point
+    commandUUID: string,
+    coordinate: string
   ) => Promise<Coordinate>;
   getMarkersFrames: (
     viewRef: React.ElementRef<any>,
+    commandUUID: string,
     onlyVisible: boolean
-  ) => Promise<unknown>;*/
+  ) => Promise<unknown>;
 }
 
 export const AIRMapCommands: AIRMapNativeCommands =
   codegenNativeCommands<AIRMapNativeCommands>({
     supportedCommands: [
       'getCamera',
-      /* 'setCamera',
+      'setCamera',
       'animateCamera',
       'animateToNavigation',
       'animateToRegion',
@@ -332,7 +352,7 @@ export const AIRMapCommands: AIRMapNativeCommands =
       'getAddressFromCoordinates',
       'pointForCoordinate',
       'coordinateForPoint',
-      'getMarkersFrames',*/
+      'getMarkersFrames',
     ],
   });
 
