@@ -762,6 +762,3 @@ const NSInteger AIRMapMaxZoomLevel = 20;
 }
 
 @end
-
-
-

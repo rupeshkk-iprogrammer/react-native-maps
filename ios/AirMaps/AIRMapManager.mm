@@ -37,7 +37,7 @@
 static NSString *const RCTMapViewKey = @"MapView";
 
 
-@interface AIRMapManager() <MKMapViewDelegate, UIGestureRecognizerDelegate, RCTComponentViewProtocol>
+@interface AIRMapManager() <MKMapViewDelegate, UIGestureRecognizerDelegate>
 
 @property AIRMap *_map;
 
@@ -54,7 +54,6 @@ RCT_EXPORT_MODULE()
 - (UIView *)view
 {
     AIRMap *map = [AIRMap new];
-    self._map = map;
     map.delegate = self;
 
     map.isAccessibilityElement = NO;
