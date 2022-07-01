@@ -68,6 +68,8 @@ NSInteger const AIR_CALLOUT_OPEN_ZINDEX_BASELINE = 999;
     } else {
         [super insertReactSubview:(UIView *)subview atIndex:atIndex];
     }
+    // TODO: this is probably hack, is it possible to have duplicate subviews that way???
+    [self didUpdateReactSubviews];
 }
 
 - (void)removeReactSubview:(id<RCTComponent>)subview {

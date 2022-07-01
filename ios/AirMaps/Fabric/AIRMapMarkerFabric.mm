@@ -87,12 +87,41 @@ using namespace facebook::react;
         _marker.title = RCTNSStringFromStringNilIfEmpty(newViewProps.title);
     }
     
-    if (oldViewProps.image != newViewProps.image) {
-     //   _marker.imageSrc = RCTNSStringFromStringNilIfEmpty(newViewProps.image.uri);
+    if (oldViewProps.description != newViewProps.description) {
+        _marker.subtitle = RCTNSStringFromStringNilIfEmpty(newViewProps.description);
     }
+    
+    if (oldViewProps.draggable != newViewProps.draggable) {
+        _marker.draggable = newViewProps.draggable;
+    }
+    
+    if (oldViewProps.opacity != newViewProps.opacity) {
+        _marker.opacity = newViewProps.opacity;
+    }
+    
+    if (oldViewProps.zIndex != newViewProps.zIndex) {
+        if (newViewProps.zIndex.has_value()) {
+            _marker.zIndex = newViewProps.zIndex.value();
+        }
+    }
+    
+    // lets handle image as React subview ATM, later will get back to custom component maybe
+    // if (oldViewProps.image != newViewProps.image) {
+     //   _marker.imageSrc = RCTNSStringFromStringNilIfEmpty(newViewProps.image.uri);
+    // }
     
     if (oldViewProps.pinColor != newViewProps.pinColor) {
         _marker.pinColor = RCTUIColorFromSharedColor(newViewProps.pinColor);
+    }
+    
+    if (oldViewProps.centerOffset.x != newViewProps.centerOffset.x || oldViewProps.centerOffset.x != newViewProps.centerOffset.x) {
+        _marker.centerOffset = (CGPoint) {newViewProps.centerOffset.x, newViewProps.centerOffset.y};
+    }
+    
+    if (oldViewProps.anchor.x != newViewProps.anchor.x || oldViewProps.anchor.y != newViewProps.anchor.y) {
+        // Unimplemented on iOS?
+       // _marker.centerXAnchor = newViewProps.anchor.x;
+       //  _maker.centerYAnchor = newViewProps.anchor.y;
     }
     
     [super updateProps: props oldProps:oldProps];

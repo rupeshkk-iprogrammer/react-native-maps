@@ -327,7 +327,7 @@ class MapMarker extends DecoratedComponent<MarkerProps, {}> {
   }
 
   render() {
-    let image;
+    /* let image;
     if (this.props.image) {
       image = Image.resolveAssetSource(this.props.image) || {};
       image = image.uri || this.props.image;
@@ -337,16 +337,13 @@ class MapMarker extends DecoratedComponent<MarkerProps, {}> {
     if (this.props.icon) {
       icon = Image.resolveAssetSource(this.props.icon) || {};
       icon = icon.uri;
-    }
+    }*/
 
     const AIRMapMarker = this.getAirComponent();
     const { children } = this.props;
     const calculatedChildren =
       children == null && this.props.image ? (
-        <Image
-          source={this.props.image}
-          style={{ width: 30, height: 30, backgroundColor: 'blue' }}
-        />
+        <Image source={this.props.image} />
       ) : (
         children
       );
@@ -357,8 +354,8 @@ class MapMarker extends DecoratedComponent<MarkerProps, {}> {
           this.marker = ref;
         }}
         {...this.props}
-        image={image}
-        icon={icon}
+        // image={image}
+        //icon={icon}
         style={[styles.marker, this.props.style]}
         onPress={(event: any) => {
           if (this.props.stopPropagation) {
