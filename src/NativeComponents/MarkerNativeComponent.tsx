@@ -8,6 +8,8 @@ import type {
 } from 'react-native/Libraries/Types/CodegenTypes';
 // @ts-ignore TODO: remove once there is a .d.ts file with definitions
 import { ImageSource } from 'react-native/Libraries/Image/ImageSource';
+// @ts-ignore TODO: remove once there is a .d.ts file with definitions
+import codegenNativeCommands from 'react-native/Libraries/Utilities/codegenNativeCommands';
 
 // @ts-ignore TODO: remove once there is a .d.ts file with definitions
 import codegenNativeComponentUntyped from 'react-native/Libraries/Utilities/codegenNativeComponent';
@@ -71,5 +73,22 @@ interface MarkerProps extends ViewProps {
   onDrag?: BubblingEventHandler<MapEvent>;
   onDragEnd?: BubblingEventHandler<MapEvent>;
 }
+
+export interface AIRMapNativeCommands {
+  redraw: (viewRef: React.ElementRef<any>) => void;
+  hideCallout: (viewRef: React.ElementRef<any>) => void;
+  showCallout: (viewRef: React.ElementRef<any>) => void;
+  redrawCallout: (viewRef: React.ElementRef<any>) => void;
+}
+
+export const AIRMapCommands: AIRMapNativeCommands =
+  codegenNativeCommands<AIRMapNativeCommands>({
+    supportedCommands: [
+      'redraw',
+      'showCallout',
+      'hideCallout',
+      'redrawCallout',
+    ],
+  });
 
 export default codegenNativeComponent<MarkerProps>('AIRMapMarker');

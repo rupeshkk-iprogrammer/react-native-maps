@@ -139,7 +139,27 @@ using namespace facebook::react;
     [_marker removeReactSubview: childComponentView];
 }
 
+- (void)handleCommand:(const NSString *)commandName args:(const NSArray *)args
+{
+    RCTAIRMapMarkerHandleCommand(self, commandName, args);
+}
 
+
+
+- (void) showCallout
+{
+    [_marker showCalloutView];
+}
+
+RCT_EXPORT_METHOD(hideCallout:(nonnull NSNumber *)reactTag)
+{
+    [_marker hideCalloutView];
+}
+
+RCT_EXPORT_METHOD(redrawCallout:(nonnull NSNumber *)reactTag)
+{
+  
+}
 
 @end
 
