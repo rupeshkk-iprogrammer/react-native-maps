@@ -10,6 +10,7 @@ import androidx.work.WorkerParameters;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -29,8 +30,8 @@ public class AirMapTileWorker extends Worker {
 
 	@Override
 	public Result doWork() {
-		byte[] image;
-		URL url;
+		byte[] image = null;
+		URL url = null;
     String fileName = getInputData().getString("filename");
 
     try {
@@ -83,7 +84,10 @@ public class AirMapTileWorker extends Worker {
         buffer.flush();
 
         return buffer.toByteArray();
-      } catch (IOException | OutOfMemoryError e) {
+      } catch (IOException e) {
+        e.printStackTrace();
+        return null;
+      } catch (OutOfMemoryError e) {
         e.printStackTrace();
         return null;
       } finally {
@@ -105,7 +109,10 @@ public class AirMapTileWorker extends Worker {
         out.write(image);
 
         return true;
-      } catch (IOException | OutOfMemoryError e) {
+      } catch (IOException e) {
+        e.printStackTrace();
+        return false;
+      } catch (OutOfMemoryError e) {
         e.printStackTrace();
         return false;
       } finally {

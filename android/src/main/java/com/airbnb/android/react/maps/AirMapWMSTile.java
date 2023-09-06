@@ -2,6 +2,10 @@ package com.airbnb.android.react.maps;
 
 import android.content.Context;
 
+import android.util.Log;
+
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.model.TileOverlay;
 import com.google.android.gms.maps.model.TileOverlayOptions;
 import com.google.android.gms.maps.model.UrlTileProvider;
 
@@ -16,7 +20,7 @@ public class AirMapWMSTile extends AirMapUrlTile {
 
     class AIRMapWMSTileProvider extends UrlTileProvider {
     private String urlTemplate;
-    private final int tileSize;
+    private int tileSize;
 
     public AIRMapWMSTileProvider(int width, int height, String urlTemplate) {
       super(width, height);
@@ -76,6 +80,8 @@ public class AirMapWMSTile extends AirMapUrlTile {
     }
   }
 
+  private AIRMapGSUrlTileProvider tileProvider;
+
   public AirMapWMSTile(Context context) {
     super(context);
   }
@@ -85,10 +91,10 @@ public class AirMapWMSTile extends AirMapUrlTile {
     TileOverlayOptions options = new TileOverlayOptions();
     options.zIndex(zIndex);
     options.transparency(1 - this.opacity);
-    AIRMapGSUrlTileProvider tileProvider = new AIRMapGSUrlTileProvider((int) this.tileSize, this.urlTemplate,
-            (int) this.maximumZ, (int) this.maximumNativeZ, (int) this.minimumZ, this.tileCachePath,
-            (int) this.tileCacheMaxAge, this.offlineMode, this.context, this.customTileProviderNeeded);
-    options.tileProvider(tileProvider);
+    this.tileProvider = new AIRMapGSUrlTileProvider((int)this.tileSize, this.urlTemplate, 
+      (int)this.maximumZ, (int)this.maximumNativeZ, (int)this.minimumZ, this.tileCachePath, 
+      (int)this.tileCacheMaxAge, this.offlineMode, this.context, this.customTileProviderNeeded);
+    options.tileProvider(this.tileProvider);
     return options;
   }
 }

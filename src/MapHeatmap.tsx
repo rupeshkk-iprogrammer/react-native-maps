@@ -1,124 +1,104 @@
-import * as React from 'react';
-import {processColor, ProcessedColorValue, View, ViewProps} from 'react-native';
+import PropTypes from 'prop-types';
+import React, { Component } from 'react';
+import { NativeMethods, processColor } from 'react-native';
+import { ViewPropTypes } from 'deprecated-react-native-prop-types';
 import decorateMapComponent, {
-  MapManagerCommand,
-  NativeComponent,
-  ProviderContext,
+  DecoratedComponent,
   SUPPORTED,
-  UIManagerCommand,
   USES_DEFAULT_IMPLEMENTATION,
 } from './decorateMapComponent';
-import {LatLng} from './sharedTypes';
-import {Modify} from './sharedTypesInternal';
+import { MapHeatmapProps } from 'react-native-maps';
 
-export type MapHeatmapProps = ViewProps & {
-  gradient?: {
-    /**
-     * Resolution of color map -- number corresponding to the number of steps colors are interpolated into.
-     *
-     * @default 256
-     * @platform iOS: Google Maps only
-     * @platform Android: Supported
-     */
-    colorMapSize: number;
-
-    /**
-     * Colors (one or more) to used for gradient.
-     *
-     * @platform iOS: Google Maps only
-     * @platform Android: Supported
-     */
-    colors: string[];
-
-    /**
-     * Array of floating point values from 0 to 1 representing where each color starts.
-     *
-     * Array length must be equal to `colors` array length.
-     *
-     * @platform iOS: Google Maps only
-     * @platform Android: Supported
-     */
-    startPoints: number[];
-  };
-
-  /**
-   * The opacity of the heatmap.
-   *
-   * @default 0.7
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
-   */
-  opacity?: number;
+const propTypes = {
+  ...ViewPropTypes,
 
   /**
    * Array of heatmap entries to apply towards density.
-   *
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
    */
-  points?: WeightedLatLng[];
+  points: PropTypes.arrayOf(
+    PropTypes.shape({
+      /**
+       * Latitude/Longitude coordinates
+       */
+      latitude: PropTypes.number.isRequired,
+      longitude: PropTypes.number.isRequired,
+      weight: PropTypes.number,
+    })
+  ),
 
   /**
-   * The radius of the heatmap points in pixels, between 10 and 50.
-   *
-   * @default 20
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
+   * The radius of the heatmap points in pixels, between 10 and 50
+   * (default 20).
    */
-  radius?: number;
+  radius: PropTypes.number,
+
+  /**
+   * The opacity of the heatmap (default 0.7).
+   */
+  opacity: PropTypes.number,
+
+  /**
+   * Heatmap gradient configuration.
+   */
+  gradient: PropTypes.shape({
+    /**
+     * Colors (one or more) to use for gradient.
+     */
+    colors: PropTypes.arrayOf(PropTypes.string),
+    /**
+     * Array of floating point values from 0 to 1 representing
+     * where each color starts.
+     */
+    startPoints: PropTypes.arrayOf(PropTypes.number),
+    /**
+     * Resolution of color map -- number corresponding to the
+     * number of steps colors are interpolated into (default 256).
+     */
+    colorMapSize: PropTypes.number,
+  }),
 };
 
-type NativeProps = Modify<
-  MapHeatmapProps,
-  {
-    gradient?: Modify<
-      MapHeatmapProps['gradient'],
-      {colors: (ProcessedColorValue | null | undefined)[]}
-    >;
-  }
-> & {
-  ref: React.RefObject<View>;
+const defaultProps = {
+  strokeColor: '#000',
+  strokeWidth: 1,
 };
 
-export class MapHeatmap extends React.Component<MapHeatmapProps> {
-  // declaration only, as they are set through decorateMap
-  declare context: React.ContextType<typeof ProviderContext>;
-  getNativeComponent!: () => NativeComponent<NativeProps>;
-  getMapManagerCommand!: (name: string) => MapManagerCommand;
-  getUIManagerCommand!: (name: string) => UIManagerCommand;
+class MapHeatmap extends DecoratedComponent<MapHeatmapProps> {
+  static propTypes = propTypes;
+  static defaultProps = defaultProps;
 
-  private heatmap: NativeProps['ref'];
+  heatmap: (Component<unknown, {}, any> & Readonly<NativeMethods>) | null =
+    null;
 
-  constructor(props: MapHeatmapProps) {
-    super(props);
-    this.heatmap = React.createRef<View>();
-  }
-
-  setNativeProps(props: Partial<NativeProps>) {
-    this.heatmap.current?.setNativeProps(props);
+  setNativeProps(props: MapHeatmapProps) {
+    this.heatmap?.setNativeProps(props);
   }
 
   render() {
-    const AIRMapHeatmap = this.getNativeComponent();
-    const propGradient = this.props.gradient;
-    let gradient: NativeProps['gradient'];
-    if (propGradient) {
-      const colors = propGradient.colors.map(c => processColor(c));
-      gradient = {...propGradient, colors};
+    const AIRMapHeatmap = this.getAirComponent();
+    let gradient;
+    if (this.props.gradient) {
+      gradient = Object.assign({}, this.props.gradient);
+      gradient.colors = gradient.colors.map((c) => processColor(c));
     }
     return (
-      <AIRMapHeatmap {...this.props} gradient={gradient} ref={this.heatmap} />
+      <AIRMapHeatmap
+        {...this.props}
+        gradient={gradient}
+        ref={(ref) => {
+          this.heatmap = ref;
+        }}
+      />
     );
   }
 }
 
-export default decorateMapComponent(MapHeatmap, 'Heatmap', {
-  google: {
-    ios: SUPPORTED,
-    android: USES_DEFAULT_IMPLEMENTATION,
+export default decorateMapComponent(MapHeatmap, {
+  componentType: 'Heatmap',
+  providers: {
+    google: {
+      ios: SUPPORTED,
+      android: USES_DEFAULT_IMPLEMENTATION,
+    },
   },
 });
-
-type WeightedLatLng = LatLng & {
-  weight?: number;
-};

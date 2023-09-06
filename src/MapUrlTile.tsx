@@ -1,168 +1,131 @@
-import * as React from 'react';
+import PropTypes from 'prop-types';
+import React from 'react';
+import { ViewPropTypes } from 'deprecated-react-native-prop-types';
 
 import decorateMapComponent, {
   USES_DEFAULT_IMPLEMENTATION,
   SUPPORTED,
-  ProviderContext,
-  NativeComponent,
-  MapManagerCommand,
-  UIManagerCommand,
+  DecoratedComponent,
 } from './decorateMapComponent';
-import {ViewProps} from 'react-native';
 
-export type MapUrlTileProps = ViewProps & {
-  /**
-   * Doubles tile size from 256 to 512 utilising higher zoom levels
-   * i.e loading 4 higher zoom level tiles and combining them for one high-resolution tile.
-   * iOS does this automatically, even if it is not desirable always.
-   * NB! using this makes text labels smaller than in the original map style.
-   *
-   * @platform iOS: Not supported
-   * @platform Android: Supported
-   */
-  doubleTileSize?: boolean;
+const propTypes = {
+  ...ViewPropTypes,
 
   /**
-   * Allow tiles using the TMS coordinate system (origin bottom left) to be used,
-   * and displayed at their correct coordinates.
-   *
-   * @platform iOS: Supported
-   * @platform Android: Supported
+   * The url template of the tile server. The patterns {x} {y} {z} will be replaced at runtime
+   * For example, http://c.tile.openstreetmap.org/{z}/{x}/{y}.png
    */
-  flipY?: boolean;
+  urlTemplate: PropTypes.string.isRequired,
 
   /**
-   * The maximum native zoom level for this tile overlay i.e. the highest zoom level that the tile server provides.
-   * Tiles are auto-scaled for higher zoom levels.
+   * The order in which this tile overlay is drawn with respect to other overlays. An overlay
+   * with a larger z-index is drawn over overlays with smaller z-indices. The order of overlays
+   * with the same z-index is arbitrary. The default zIndex is -1.
    *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
+   * @platform android
    */
-  maximumNativeZ?: number;
+  zIndex: PropTypes.number,
 
   /**
    * The maximum zoom level for this tile overlay.
    *
-   * @platform iOS: Supported
-   * @platform Android: Supported
    */
-  maximumZ?: number;
+  maximumZ: PropTypes.number,
+
+  /**
+   * (Optional) The maximum native zoom level for this tile overlay. Tiles are auto-scaled for higher
+   * zoom levels.
+   *
+   */
+  maximumNativeZ: PropTypes.number,
 
   /**
    * The minimum zoom level for this tile overlay.
    *
-   * @platform iOS: Supported
-   * @platform Android: Supported
    */
-  minimumZ?: number;
+  minimumZ: PropTypes.number,
 
   /**
-   * In offline-mode tiles are not fetched from the tile servers, rather only tiles stored in the cache directory are used.
-   * Furthermore automated tile scaling is activated: if tile at a desired zoom level is not found from the cache directory,
-   * then lower zoom level tile is used (up to 4 levels lower) and scaled.
+   * Corresponds to MKTileOverlay canReplaceMapContent.
    *
-   * @default false
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
+   * @platform ios
    */
-  offlineMode?: boolean;
+  shouldReplaceMapContent: PropTypes.bool,
 
   /**
-   * Map layer opacity. Value between 0 - 1, with 0 meaning fully transparent.
+   * (Optional) Tile size only, default size is 256 (for tiles of 256 * 256 pixels)
    *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
    */
-  opacity?: number;
+  tileSize: PropTypes.number,
 
   /**
-   * Corresponds to MKTileOverlay canReplaceMapContent i.e. if true then underlying iOS basemap is not shown.
+   * (Optional) Doubles tile size from 256 to 512 utilising higher zoom levels i.e.
+   * loading 4 higher zoom level tiles and combining them for one high-resolution
+   * tile. iOS does this automatically, even if it is not desirable always.
    *
-   * @default false
-   * @platform iOS: Apple Maps only
-   * @platform Android: Not supported
+   *  @platform android
    */
-  shouldReplaceMapContent?: boolean;
+  doubleTileSize: PropTypes.bool,
 
   /**
-   * Defines maximum age in seconds for a cached tile before it's refreshed.
    *
-   * NB! Refresh logic is "serve-stale-while-refresh"
-   * i.e. to ensure map availability a stale (over max age) tile is served
-   * while a tile refresh process is started in the background.
+   * Allow tiles using the TMS coordinate system (origin bottom left)
+   * to be used, and displayed at their correct coordinates
    *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
    */
-  tileCacheMaxAge?: number;
+  flipY: PropTypes.bool,
 
   /**
-   * Enable caching of tiles in the specified directory.
-   * Directory can be specified either as a normal path or in URL format (`file://`).
    *
-   * Tiles are stored in tileCachePath directory as `/{z}/{x}/{y}` i.e. in sub-directories 2-levels deep,
-   * filename is tile y-coordinate without any filetype-extension.
+   * (Optional) Enable caching of tiles in the specified directory. Directory
+   * can be specified either as a normal path or in URL format (file://). Tiles
+   * are stored in tileCachePath directory as follows "/{z}/{x}/{y}" i.e. in
+   * sub-directories 2-levels deep, filename tile y-coordinate without any
+   * filetype-extension.
+   * NB! All cache management needs to be implemented by client e.g. deleting tiles
+   * to manage use of storage space etc.
    *
-   * NB! All cache management needs to be implemented by client e.g. deleting tiles to manage use of storage space etc.
-   *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
    */
-  tileCachePath?: string;
+  tileCachePath: PropTypes.string,
 
   /**
-   * Tile size, default size is 256 (for tiles of 256 _ 256 pixels).
-   * High-res (aka 'retina') tiles are 512 (tiles of 512 _ 512 pixels)
-   *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
+   * (Optional) Defines how maximum age in seconds for cached tile before they
+   * are refreshed. NB! Refresh logic is "serve-stale-while-refresh" i.e. to
+   * ensure map availability a stale (over max age) tile is served while a tile
+   * refresh process is started in the background.
    */
-  tileSize?: number;
+  tileCacheMaxAge: PropTypes.number,
 
   /**
-   * The url template of the map tileserver.
-   * (URLTile) The patterns {x} {y} {z} will be replaced at runtime.
-   * For example, http://c.tile.openstreetmap.org/{z}/{x}/{y}.png.
-   *
-   * It is also possible to refer to tiles in local filesystem with file:///top-level-directory/sub-directory/{z}/{x}/{y}.png URL-format.
-   * (WMSTile) The patterns {minX} {maxX} {minY} {maxY} {width} {height} will be replaced at runtime according to EPSG:900913 specification bounding box.
-   * For example, https://demo.geo-solutions.it/geoserver/tiger/wms?service=WMS&version=1.1.0&request=GetMap&layers=tiger:poi&styles=&bbox={minX},{minY},{maxX},{maxY}&width={width}&height={height}&srs=EPSG:900913&format=image/png&transparent=true&format_options=dpi:213.
-   *
-   * @platform iOS: Supported
-   * @platform Android: Supported
+   * (Optional) Sets offline-mode. In offline-mode tiles are not fetched from
+   * the tile servers, rather only tiles stored in the cache directory are used.
+   * Furthermore automated tile scaling is activated: if tile at a desired zoom
+   * level is not found from the cache directory, then lower zoom level tile is
+   * used (until minimumZ) and scaled.
    */
-
-  urlTemplate: string;
+  offlineMode: PropTypes.bool,
 
   /**
-   * The order in which this tile overlay is drawn with respect to other overlays.
-   * An overlay with a larger z-index is drawn over overlays with smaller z-indices.
-   * The order of overlays with the same z-index is arbitrary.
-   *
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
+   * (Optional) Map layer opacity. Value between 0 - 1, with 0 meaning fully
+   * transparent.
    */
-  zIndex?: number;
+  opacity: PropTypes.number,
 };
 
-type NativeProps = MapUrlTileProps;
-
-export class MapUrlTile extends React.Component<MapUrlTileProps> {
-  // declaration only, as they are set through decorateMap
-  declare context: React.ContextType<typeof ProviderContext>;
-  getNativeComponent!: () => NativeComponent<NativeProps>;
-  getMapManagerCommand!: (name: string) => MapManagerCommand;
-  getUIManagerCommand!: (name: string) => UIManagerCommand;
-
+class MapUrlTile extends DecoratedComponent {
+  static propTypes = propTypes;
   render() {
-    const AIRMapUrlTile = this.getNativeComponent();
+    const AIRMapUrlTile = this.getAirComponent();
     return <AIRMapUrlTile {...this.props} />;
   }
 }
 
-export default decorateMapComponent(MapUrlTile, 'UrlTile', {
-  google: {
-    ios: SUPPORTED,
-    android: USES_DEFAULT_IMPLEMENTATION,
+export default decorateMapComponent(MapUrlTile, {
+  componentType: 'UrlTile',
+  providers: {
+    google: {
+      ios: SUPPORTED,
+      android: USES_DEFAULT_IMPLEMENTATION,
+    },
   },
 });

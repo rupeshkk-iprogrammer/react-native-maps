@@ -1,64 +1,61 @@
-import * as React from 'react';
+import PropTypes from 'prop-types';
+import React, { Component } from 'react';
 import {
-  Animated as RNAnimated,
-  Animated,
-  findNodeHandle,
-  HostComponent,
-  NativeModules,
-  NativeSyntheticEvent,
   Platform,
+  Animated as RNAnimated,
+  NativeModules,
+  LayoutChangeEvent,
+  HostComponent,
+  NativeMethods,
   requireNativeComponent,
-  UIManager,
-  ViewProps,
 } from 'react-native';
 import {
-  createNotSupportedComponent,
-  getNativeMapName,
+  EdgeInsetsPropType,
+  PointPropType,
+  ColorPropType,
+  ViewPropTypes,
+} from 'deprecated-react-native-prop-types';
+import MapMarker from './MapMarker';
+import MapPolyline from './MapPolyline';
+import MapPolygon from './MapPolygon';
+import MapCircle from './MapCircle';
+import MapCallout from './MapCallout';
+import MapCalloutSubview from './MapCalloutSubview';
+import MapOverlay from './MapOverlay';
+import MapUrlTile from './MapUrlTile';
+import MapWMSTile from './MapWMSTile';
+import MapLocalTile from './MapLocalTile';
+import MapHeatMap from './MapHeatmap';
+import AnimatedRegion from './AnimatedRegion';
+import Geojson from './Geojson';
+import {
+  contextTypes as childContextTypes,
+  getAirMapName,
   googleMapIsInstalled,
-  NativeComponent,
-  ProviderContext,
+  createNotSupportedComponent,
 } from './decorateMapComponent';
 import * as ProviderConstants from './ProviderConstants';
 import {
-  CalloutPressEvent,
-  ClickEvent,
-  Frame,
-  LatLng,
-  MarkerDeselectEvent,
-  MarkerDragEvent,
-  MarkerDragStartEndEvent,
-  MarkerPressEvent,
-  MarkerSelectEvent,
-  Point,
-  Provider,
-  Region,
-} from './sharedTypes';
-import {
-  Address,
-  BoundingBox,
   Camera,
-  ChangeEvent,
-  Details,
+  Coordinate,
   EdgePadding,
-  FitToOptions,
-  IndoorBuildingEvent,
-  IndoorLevelActivatedEvent,
-  KmlMapEvent,
-  LongPressEvent,
-  MapPressEvent,
-  MapStyleElement,
-  MapType,
-  MapTypes,
-  NativeCommandName,
-  PanDragEvent,
-  PoiClickEvent,
+  LatLng,
+  MapEvent,
+  MapViewProps,
+  Point,
+  Region,
   SnapshotOptions,
-  UserLocationChangeEvent,
-} from './MapView.types';
-import {Modify} from './sharedTypesInternal';
-import {Commands, MapViewNativeComponentType} from './MapViewNativeComponent';
+} from 'react-native-maps';
+import AIRGoogleMap from './NativeComponents/AIRGoogleMapNativeComponent';
+import AIRMap, {
+  AIRMapCommands,
+  AIRMapNativeCommands,
+  AIRMapProps,
+  CommandResponse,
+} from './NativeComponents/AIRMapNativeComponent';
+import MapCommands from './MapCommands';
 
-export const MAP_TYPES: MapTypes = {
+export const MAP_TYPES = {
   STANDARD: 'standard',
   SATELLITE: 'satellite',
   HYBRID: 'hybrid',
@@ -67,54 +64,320 @@ export const MAP_TYPES: MapTypes = {
   MUTEDSTANDARD: 'mutedStandard',
 };
 
-const GOOGLE_MAPS_ONLY_TYPES: MapType[] = [MAP_TYPES.TERRAIN, MAP_TYPES.NONE];
+const GOOGLE_MAPS_ONLY_TYPES = [MAP_TYPES.TERRAIN, MAP_TYPES.NONE];
 
-export type MapViewProps = ViewProps & {
+const viewConfig = {
+  uiViewClassName: 'AIR<provider>Map',
+  validAttributes: {
+    region: true,
+  },
+};
+
+/**
+ * Defines the map camera.
+ */
+const CameraShape = PropTypes.shape({
+  center: PropTypes.shape({
+    latitude: PropTypes.number.isRequired,
+    longitude: PropTypes.number.isRequired,
+  }),
+  pitch: PropTypes.number.isRequired,
+  heading: PropTypes.number.isRequired,
+  altitude: PropTypes.number.isRequired,
+  zoom: PropTypes.number.isRequired,
+});
+
+const propTypes = {
+  ...ViewPropTypes,
   /**
-   * If `true` map will be cached and displayed as an image instead of being interactable, for performance usage.
-   *
-   * @default false
-   * @platform iOS: Apple maps only
-   * @platform Android: Supported
+   * When provider is "google", we will use GoogleMaps.
+   * Any value other than "google" will default to using
+   * MapKit in iOS or GoogleMaps in android as the map provider.
    */
-  cacheEnabled?: boolean;
+  provider: PropTypes.oneOf(['google']),
 
   /**
-   * The camera view the map should display.
+   * Used to style and layout the `MapView`.  See `StyleSheet.js` and
+   * `ViewStylePropTypes.js` for more info.
+   */
+  style: ViewPropTypes.style,
+
+  /**
+   * A json object that describes the style of the map. This is transformed to a string
+   * and saved in mayStyleString to be sent to android and ios
+   * https://developers.google.com/maps/documentation/ios-sdk/styling#use_a_string_resource
+   * https://developers.google.com/maps/documentation/android-api/styling
+   */
+  customMapStyle: PropTypes.array,
+
+  /**
+   * A json string that describes the style of the map
+   * https://developers.google.com/maps/documentation/ios-sdk/styling#use_a_string_resource
+   * https://developers.google.com/maps/documentation/android-api/styling
+   */
+  customMapStyleString: PropTypes.string,
+
+  /**
+   * If `true` the app will ask for the user's location.
+   * Default value is `false`.
+   *
+   * **NOTE**: You need to add NSLocationWhenInUseUsageDescription key in
+   * Info.plist to enable geolocation, otherwise it is going
+   * to *fail silently*! You will also need to add an explanation for why
+   * you need the users location against `NSLocationWhenInUseUsageDescription` in Info.plist.
+   * Otherwise Apple may reject your app submission.
+   */
+  showsUserLocation: PropTypes.bool,
+
+  /**
+   * The title of the annotation for current user location. This only works if
+   * `showsUserLocation` is true.
+   * There is a default value `My Location` set by MapView.
+   *
+   * @platform ios
+   */
+  userLocationAnnotationTitle: PropTypes.string,
+
+  /**
+   * The user interface style for the map view
+   * There is a default value is the device settings.
+   *
+   * @platform ios
+   */
+  userInterfaceStyle: PropTypes.oneOf(['light', 'dark']),
+
+  /**
+   * If `false` hide the button to move map to the current user's location.
+   * Default value is `true`.
+   *
+   * @platform android
+   */
+  showsMyLocationButton: PropTypes.bool,
+
+  /**
+   * If `true` the map will focus on the user's location. This only works if
+   * `showsUserLocation` is true and the user has shared their location.
+   * Default value is `false`.
+   *
+   * @platform ios
+   */
+  followsUserLocation: PropTypes.bool,
+  /**
+   * If `true` clicking user location will show the default callout for userLocation annotation
+   * Default value is `false`.
+   *
+   * @platform ios
+   */
+  userLocationCalloutEnabled: PropTypes.bool,
+
+  /**
+   * If `false` points of interest won't be displayed on the map.
+   * Default value is `true`.
+   *
+   */
+  showsPointsOfInterest: PropTypes.bool,
+
+  /**
+   * If `false` compass won't be displayed on the map.
+   * Default value is `true`.
+   *
+   * @platform ios
+   */
+  showsCompass: PropTypes.bool,
+
+  /**
+   * If `false` the user won't be able to pinch/zoom the map.
+   * Default value is `true`.
+   *
+   */
+  zoomEnabled: PropTypes.bool,
+
+  /**
+   * If `false` the user won't be able to double tap to zoom the map.
+   * However it will greatly decrease delay of tap gesture recognition.
+   * Default value is `true`.
+   *
+   */
+  zoomTapEnabled: PropTypes.bool,
+
+  /**
+   *If `false` the user won't be able to zoom the map
+   * Default value is `true`.
+   *
+   *@platform android
+   */
+  zoomControlEnabled: PropTypes.bool,
+
+  /**
+   * If `false` the user won't be able to pinch/rotate the map.
+   * Default value is `true`.
+   *
+   */
+  rotateEnabled: PropTypes.bool,
+
+  /**
+   * If `false` the map will stay centered while rotating or zooming.
+   * Default value is `true`.
+   *
+   */
+  scrollDuringRotateOrZoomEnabled: PropTypes.bool,
+
+  /**
+   * If `true` the map will be cached to an Image for performance
+   * Default value is `false`.
+   *
+   */
+  cacheEnabled: PropTypes.bool,
+
+  /**
+   * If `true` the map will be showing a loading indicator
+   * Default value is `false`.
+   *
+   */
+  loadingEnabled: PropTypes.bool,
+
+  /**
+   * Loading background color while generating map cache image or loading the map
+   * Default color is light gray.
+   *
+   */
+  loadingBackgroundColor: ColorPropType,
+
+  /**
+   * Loading indicator color while generating map cache image or loading the map
+   * Default color is gray color for iOS, theme color for Android.
+   *
+   */
+  loadingIndicatorColor: ColorPropType,
+
+  /**
+   * If `false` the user won't be able to change the map region being displayed.
+   * Default value is `true`.
+   *
+   */
+  scrollEnabled: PropTypes.bool,
+
+  /**
+   * If `false` the user won't be able to adjust the camera’s pitch angle.
+   * Default value is `true`.
+   *
+   */
+  pitchEnabled: PropTypes.bool,
+
+  /**
+   * If `false` will hide 'Navigate' and 'Open in Maps' buttons on marker press
+   * Default value is `true`.
+   *
+   * @platform android
+   */
+  toolbarEnabled: PropTypes.bool,
+
+  /**
+   * A Boolean indicating whether on marker press the map will move to the pressed marker
+   * Default value is `true`
+   *
+   * @platform android
+   */
+  moveOnMarkerPress: PropTypes.bool,
+
+  /**
+   * A Boolean indicating whether the map shows scale information.
+   * Default value is `false`
+   *
+   * @platform ios
+   */
+  showsScale: PropTypes.bool,
+
+  /**
+   * A Boolean indicating whether the map displays extruded building information.
+   * Default value is `true`.
+   */
+  showsBuildings: PropTypes.bool,
+
+  /**
+   * A Boolean value indicating whether the map displays traffic information.
+   * Default value is `false`.
+   */
+  showsTraffic: PropTypes.bool,
+
+  /**
+   * A Boolean indicating whether indoor maps should be enabled.
+   * Default value is `false`
+   *
+   * @platform android
+   */
+  showsIndoors: PropTypes.bool,
+
+  /**
+   * A Boolean indicating whether indoor level picker should be enabled.
+   * Default value is `false`
+   *
+   * @platform android
+   */
+  showsIndoorLevelPicker: PropTypes.bool,
+
+  /**
+   * The map type to be displayed.
+   *
+   * - standard: standard road map (default)
+   * - satellite: satellite view
+   * - hybrid: satellite view with roads and points of interest overlayed
+   * - terrain: topographic view
+   * - none: no base map
+   */
+  mapType: PropTypes.oneOf(Object.values(MAP_TYPES)),
+
+  /**
+   * The region to be displayed by the map.
+   *
+   * The region is defined by the center coordinates and the span of
+   * coordinates to display.
+   */
+  region: PropTypes.shape({
+    /**
+     * Coordinates for the center of the map.
+     */
+    latitude: PropTypes.number.isRequired,
+    longitude: PropTypes.number.isRequired,
+
+    /**
+     * Difference between the minimun and the maximum latitude/longitude
+     * to be displayed.
+     */
+    latitudeDelta: PropTypes.number.isRequired,
+    longitudeDelta: PropTypes.number.isRequired,
+  }),
+
+  /**
+   * The initial region to be displayed by the map.  Use this prop instead of `region`
+   * only if you don't want to control the viewport of the map besides the initial region.
+   *
+   * Changing this prop after the component has mounted will not result in a region change.
+   *
+   * This is similar to the `initialValue` prop of a text input.
+   */
+  initialRegion: PropTypes.shape({
+    /**
+     * Coordinates for the center of the map.
+     */
+    latitude: PropTypes.number.isRequired,
+    longitude: PropTypes.number.isRequired,
+
+    /**
+     * Difference between the minimun and the maximum latitude/longitude
+     * to be displayed.
+     */
+    latitudeDelta: PropTypes.number.isRequired,
+    longitudeDelta: PropTypes.number.isRequired,
+  }),
+
+  /**
+   * The camera view the map should use.
    *
    * Use the camera system, instead of the region system, if you need control over
-   * the pitch or heading. Using this will ignore the `region` property.
-   * @platform iOS: Supported
-   * @platform Android: Supported
+   * the pitch or heading.
    */
-  camera?: Camera;
-
-  /**
-   * If set, changes the position of the compass.
-   *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Not supported
-   */
-  compassOffset?: Point;
-
-  /**
-   * Adds custom styling to the map component.
-   * See [README](https://github.com/react-native-maps/react-native-maps#customizing-the-map-style) for more information.
-   *
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
-   */
-  customMapStyle?: MapStyleElement[];
-
-  /**
-   * If `true` the map will focus on the user's location.
-   * This only works if `showsUserLocation` is true and the user has shared their location.
-   *
-   * @default false
-   * @platform iOS: Apple Maps only
-   * @platform Android: Not supported
-   */
-  followsUserLocation?: boolean;
+  camera: CameraShape,
 
   /**
    * The initial camera view the map should use.  Use this prop instead of `camera`
@@ -126,630 +389,329 @@ export type MapViewProps = ViewProps & {
    * Changing this prop after the component has mounted will not result in a camera change.
    *
    * This is similar to the `initialValue` prop of a text input.
-   *
-   * @platform iOS: Supported
-   * @platform Android: Supported
    */
-  initialCamera?: Camera;
+  initialCamera: CameraShape,
 
   /**
-   * The initial region to be displayed by the map.  Use this prop instead of `region`
-   * only if you don't want to control the viewport of the map besides the initial region.
+   * A Boolean indicating whether to use liteMode for android
+   * Default value is `false`
    *
-   * Changing this prop after the component has mounted will not result in a region change.
-   *
-   * This is similar to the `initialValue` prop of a text input.
-   *
-   * @platform iOS: Supported
-   * @platform Android: Supported
+   * @platform android
    */
-  initialRegion?: Region;
+  liteMode: PropTypes.bool,
 
   /**
-   * The URL for KML file.
+   * (Google Maps only)
    *
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
+   * Padding that is used by the Google Map View to position
+   * the camera, legal labels and buttons
+   *
    */
-  kmlSrc?: string;
+  mapPadding: EdgeInsetsPropType,
 
   /**
-   * If set, changes the position of the "Legal" label link in Apple maps.
+   * (Google Maps only, iOS)
    *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Not supported
+   * Whether the safe area padding is added to the Google Map View padding.
+   * This affects where markers, compass, Google logo etc. are placed on the view.
+   *
    */
-  legalLabelInsets?: EdgePadding;
+  paddingAdjustmentBehavior: PropTypes.oneOf(['always', 'automatic', 'never']),
 
   /**
-   * Enables lite mode on Android
+   * Maximum size of area that can be displayed.
    *
-   * @platform iOS: Not supported
-   * @platform Android: Supported
+   * @platform ios
    */
-  liteMode?: boolean;
+  maxDelta: PropTypes.number,
 
   /**
-   * Sets loading background color.
+   * Minimum size of area that can be displayed.
    *
-   * @default `#FFFFFF`
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
+   * @platform ios
    */
-  loadingBackgroundColor?: string;
+  minDelta: PropTypes.number,
 
   /**
-   * If `true` a loading indicator will show while the map is loading.
-   *
-   * @default false
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
+   * Insets for the map's legal label, originally at bottom left of the map.
+   * See `EdgeInsetsPropType.js` for more information.
    */
-  loadingEnabled?: boolean;
+  legalLabelInsets: EdgeInsetsPropType,
 
   /**
-   * Sets loading indicator color.
-   *
-   * @default `#606060`
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
+   * Callback that is called once the map is fully loaded.
    */
-  loadingIndicatorColor?: string;
+  onMapReady: PropTypes.func,
 
   /**
-   * Adds custom padding to each side of the map. Useful when map elements/markers are obscured.
-   *
-   * @platform iOS: Supported
-   * @platform Android: Supported
+   * Callback that is called once all tiles have been loaded
+   * (or failed permanently) and labels have been rendered.
    */
-  mapPadding?: EdgePadding;
-
-  /**
-   * The map type to be displayed
-   *
-   * @default `standard`
-   * @platform iOS: hybrid | mutedStandard | sattelite | standard | terrain
-   * @platform Android: hybrid | none | sattelite | standard | terrain
-   */
-  mapType?: MapType;
-
-  /**
-   * TODO: Add documentation
-   *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Not supported
-   */
-  maxDelta?: number;
-
-  /**
-   * Maximum zoom value for the map, must be between 0 and 20
-   *
-   * @default 20
-   * @platform iOS: Supported
-   * @platform Android: Supported
-   */
-  maxZoomLevel?: number;
-
-  /**
-   * TODO: Add documentation
-   *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Not supported
-   */
-  minDelta?: number;
-
-  /**
-   * Minimum zoom value for the map, must be between 0 and 20
-   *
-   * @default 0
-   * @platform iOS: Supported
-   * @platform Android: Supported
-   */
-  minZoomLevel?: number;
-
-  /**
-   * If `false` the map won't move to the marker when pressed.
-   *
-   * @default true
-   * @platform iOS: Not supported
-   * @platform Android: Supported
-   */
-  moveOnMarkerPress?: boolean;
-
-  /**
-   * Callback that is called when a callout is tapped by the user.
-   *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
-   */
-  onCalloutPress?: (event: CalloutPressEvent) => void;
-
-  /**
-   * Callback that is called when user double taps on the map.
-   *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
-   */
-  onDoublePress?: (event: ClickEvent) => void;
-
-  /**
-   * Callback that is called when an indoor building is focused/unfocused
-   *
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
-   */
-  onIndoorBuildingFocused?: (event: IndoorBuildingEvent) => void;
-
-  /**
-   * Callback that is called when a level on indoor building is activated
-   *
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
-   */
-  onIndoorLevelActivated?: (event: IndoorLevelActivatedEvent) => void;
+  onMapLoaded: PropTypes.func,
 
   /**
    * Callback that is called once the kml is fully loaded.
-   *
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
    */
-  onKmlReady?: (event: KmlMapEvent) => void;
+  onKmlReady: PropTypes.func,
 
   /**
-   * Callback that is called when user makes a "long press" somewhere on the map.
-   *
-   * @platform iOS: Supported
-   * @platform Android: Supported
+   * Callback that is called continuously when the user is dragging the map.
    */
-  onLongPress?: (event: LongPressEvent) => void;
+  onRegionChange: PropTypes.func,
 
   /**
-   * Callback that is called when the map has finished rendering all tiles.
-   *
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
+   * Callback that is called once, when the user is done moving the map.
    */
-  onMapLoaded?: (event: NativeSyntheticEvent<{}>) => void;
-
-  /**
-   * Callback that is called once the map is ready.
-   *
-   * Event is optional, as the first onMapReady callback is intercepted
-   * on Android, and the event is not passed on.
-   *
-   * @platform iOS: Supported
-   * @platform Android: Supported
-   */
-  onMapReady?: (event?: NativeSyntheticEvent<{}>) => void;
-
-  /**
-   * Callback that is called when a marker on the map becomes deselected.
-   * This will be called when the callout for that marker is about to be hidden.
-   *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Not supported
-   */
-  onMarkerDeselect?: (event: MarkerDeselectEvent) => void;
-
-  /**
-   * Callback called continuously as a marker is dragged
-   *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
-   */
-  onMarkerDrag?: (event: MarkerDragEvent) => void;
-
-  /**
-   * Callback that is called when a drag on a marker finishes.
-   * This is usually the point you will want to setState on the marker's coordinate again
-   *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
-   */
-  onMarkerDragEnd?: (event: MarkerDragStartEndEvent) => void;
-
-  /**
-   * Callback that is called when the user initiates a drag on a marker (if it is draggable)
-   *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
-   */
-  onMarkerDragStart?: (event: MarkerDragStartEndEvent) => void;
-
-  /**
-   * Callback that is called when a marker on the map is tapped by the user.
-   *
-   * @platform iOS: Supported
-   * @platform Android: Supported
-   */
-  onMarkerPress?: (event: MarkerPressEvent) => void;
-
-  /**
-   * Callback that is called when a marker on the map becomes selected.
-   * This will be called when the callout for that marker is about to be shown.
-   *
-   * @platform iOS: Apple Maps only.
-   * @platform Android: Not supported
-   */
-  onMarkerSelect?: (event: MarkerSelectEvent) => void;
-
-  /**
-   * Callback that is called when user presses and drags the map.
-   * **NOTE**: for iOS `scrollEnabled` should be set to false to trigger the event
-   *
-   * @platform iOS: Supported
-   * @platform Android: Supported
-   */
-  onPanDrag?: (event: PanDragEvent) => void;
-
-  /**
-   * Callback that is called when user click on a POI.
-   *
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
-   */
-  onPoiClick?: (event: PoiClickEvent) => void;
+  onRegionChangeComplete: PropTypes.func,
 
   /**
    * Callback that is called when user taps on the map.
-   *
-   * @platform iOS: Supported
-   * @platform Android: Supported
    */
-  onPress?: (event: MapPressEvent) => void;
+  onPress: PropTypes.func,
 
   /**
-   * Callback that is called continuously when the region changes, such as when a user is dragging the map.
-   * `isGesture` property indicates if the move was from the user (true) or an animation (false).
-   * **Note**: `isGesture` is supported by Google Maps only.
-   *
-   * @platform iOS: Supported
-   * @platform Android: Supported
+   * Callback that is called when user double taps on the map.
    */
-  onRegionChange?: (region: Region, details: Details) => void;
+  onDoublePress: PropTypes.func,
 
   /**
-   * Callback that is called once when the region changes, such as when the user is done moving the map.
-   * `isGesture` property indicates if the move was from the user (true) or an animation (false).
-   * **Note**: `isGesture` is supported by Google Maps only.
-   *
-   * @platform iOS: Supported
-   * @platform Android: Supported
+   * Callback that is called when user makes a "long press" somewhere on the map.
    */
-  onRegionChangeComplete?: (region: Region, details: Details) => void;
+  onLongPress: PropTypes.func,
 
   /**
-   * Callback that is called when the underlying map figures our users current location
-   * (coordinate also includes isFromMockProvider value for Android API 18 and above).
-   * Make sure **showsUserLocation** is set to *true*.
-   *
-   * @platform iOS: Supported
-   * @platform Android: Supported
+   * Callback that is called when the underlying map figures our users current location.
    */
-  onUserLocationChange?: (event: UserLocationChangeEvent) => void;
+  onUserLocationChange: PropTypes.func,
 
   /**
-   * Indicates how/when to affect padding with safe area insets
-   *
-   * @platform iOS: Google Maps only
-   * @platform Android: Not supported
+   * Callback that is called when user makes a "drag" somewhere on the map
    */
-  paddingAdjustmentBehavior?: 'always' | 'automatic' | 'never';
+  onPanDrag: PropTypes.func,
 
   /**
-   * If `false` the user won't be able to adjust the camera’s pitch angle.
-   *
-   * @default true
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
+   * Callback that is called when user click on a POI
    */
-  pitchEnabled?: boolean;
+  onPoiClick: PropTypes.func,
 
   /**
-   * The map framework to use.
-   * Either `"google"` for GoogleMaps, otherwise `undefined` to use the native map framework (`MapKit` in iOS and `GoogleMaps` in android).
-   *
-   * @platform iOS: Supported
-   * @platform Android: Supported
+   * Callback that is called when a marker on the map is tapped by the user.
    */
-  provider?: Provider;
+  onMarkerPress: PropTypes.func,
 
   /**
-   * The region to be displayed by the map.
-   * The region is defined by the center coordinates and the span of coordinates to display.
+   * Callback that is called when a marker on the map becomes selected. This will be called when
+   * the callout for that marker is about to be shown.
    *
-   * @platform iOS: Supported
-   * @platform Android: Supported
+   * @platform ios
    */
-  region?: Region;
+  onMarkerSelect: PropTypes.func,
 
   /**
-   * If `false` the user won't be able to adjust the camera’s pitch angle.
+   * Callback that is called when a marker on the map becomes deselected. This will be called when
+   * the callout for that marker is about to be hidden.
    *
-   * @default true
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
+   * @platform ios
    */
-  rotateEnabled?: boolean;
+  onMarkerDeselect: PropTypes.func,
 
   /**
-   * If `false` the map will stay centered while rotating or zooming.
-   *
-   * @default true
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
+   * Callback that is called when a callout is tapped by the user.
    */
-  scrollDuringRotateOrZoomEnabled?: boolean;
+  onCalloutPress: PropTypes.func,
 
   /**
-   * If `false` the user won't be able to change the map region being displayed.
-   *
-   * @default true
-   * @platform iOS: Supported
-   * @platform Android: Supported
+   * Callback that is called when the user initiates a drag on a marker (if it is draggable)
    */
-  scrollEnabled?: boolean;
+  onMarkerDragStart: PropTypes.func,
 
   /**
-   * A Boolean indicating whether the map displays extruded building information.
-   *
-   * @default true
-   * @platform iOS: Not supported
-   * @platform Android: Supported
+   * Callback called continuously as a marker is dragged
    */
-  showsBuildings?: boolean;
+  onMarkerDrag: PropTypes.func,
 
   /**
-   * If `false` compass won't be displayed on the map.
-   *
-   * @default true
-   * @platform iOS: Supported
-   * @platform Android: Supported
+   * Callback that is called when a drag on a marker finishes. This is usually the point you
+   * will want to setState on the marker's coordinate again
    */
-  showsCompass?: boolean;
+  onMarkerDragEnd: PropTypes.func,
 
   /**
-   * A Boolean indicating whether indoor level picker should be enabled.
-   *
-   * @default false
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
+   * Minimum zoom value for the map, must be between 0 and 20
    */
-  showsIndoorLevelPicker?: boolean;
+  minZoomLevel: PropTypes.number,
 
   /**
-   * A Boolean indicating whether indoor maps should be enabled.
-   *
-   * @default true
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
+   * Maximum zoom value for the map, must be between 0 and 20
    */
-  showsIndoors?: boolean;
+  maxZoomLevel: PropTypes.number,
 
   /**
-   * If `false` hide the button to move map to the current user's location.
-   *
-   * @default true
-   * @platform iOS: Google Maps only
-   * @platform Android: Supported
+   * Url KML Source
    */
-  showsMyLocationButton?: boolean;
+  kmlSrc: PropTypes.string,
 
   /**
-   * If `false` points of interest won't be displayed on the map.
-   * TODO: DEPRECATED? Doesn't seem to do anything
+   * Offset Point x y for compass location.
    *
-   * @default true
-   * @platform iOS: Maybe Apple Maps?
-   * @platform Android: Not supported
+   * @platform ios
    */
-  showsPointsOfInterest?: boolean;
+  compassOffset: PointPropType,
 
   /**
-   * A Boolean indicating whether the map shows scale information.
-   *
-   * @default true
-   * @platform iOS: Apple Maps only
-   * @platform Android: Not supported
+   * Callback that is called when a level is activated on a indoor building.
    */
-  showsScale?: boolean;
+  onIndoorLevelActivated: PropTypes.func,
 
   /**
-   * A Boolean value indicating whether the map displays traffic information.
-   * TODO: Look into android support
-   *
-   * @default false
-   * @platform iOS: Supported
-   * @platform Android: Not supported?
+   * Callback that is called when a Building is focused.
    */
-  showsTraffic?: boolean;
+  onIndoorBuildingFocused: PropTypes.func,
 
   /**
-   * If `true` the users location will be displayed on the map.
+   * Sets the tint color of the map. (Changes the color of the position indicator) Defaults to system blue.
    *
-   * This will cause iOS to ask for location permissions.
-   * For iOS see: [DOCS](https://github.com/react-native-maps/react-native-maps/blob/master/docs/installation.md#set-the-usage-description-property)
-   * @default false
-   * @platform iOS: Supported
-   * @platform Android: Supported
+   * @platform ios
    */
-  showsUserLocation?: boolean;
-
-  /**
-   * Sets the tint color of the map. (Changes the color of the position indicator)
-   *
-   * @default System Blue
-   * @platform iOS: Apple Maps only
-   * @platform Android: Not supported
-   */
-  tintColor?: string;
-
-  /**
-   * If `false` will hide 'Navigate' and 'Open in Maps' buttons on marker press
-   *
-   * @default true
-   * @platform iOS: Not supported
-   * @platform Android: Supported
-   */
-  toolbarEnabled?: boolean;
-
-  /**
-   * Sets the map to the style selected.
-   *
-   * @default System setting
-   * @platform iOS: Apple Maps only (iOS >= 13.0)
-   * @platform Android: Not supported
-   */
-  userInterfaceStyle?: 'light' | 'dark';
-
-  /**
-   * The title of the annotation for current user location.
-   *
-   * This only works if `showsUserLocation` is true.
-   *
-   * @default `My Location`
-   * @platform iOS: Apple Maps only
-   * @platform Android: Not supported
-   */
-  userLocationAnnotationTitle?: string;
-
-  /**
-   * If `true` clicking user location will show the default callout for userLocation annotation.
-   *
-   * @default false
-   * @platform iOS: Apple Maps only
-   * @platform Android: Not supported
-   */
-  userLocationCalloutEnabled?: boolean;
-
-  /**
-   * Fastest interval the application will actively acquire locations.
-   *
-   * See [Google APIs documentation](https://developers.google.com/android/reference/com/google/android/gms/location/LocationRequest.html)
-   *
-   * @default 5000
-   * @platform iOS: Not supported
-   * @platform Android: Supported
-   */
-  userLocationFastestInterval?: number;
-
-  /**
-   * Set power priority of user location tracking.
-   *
-   * See [Google APIs documentation](https://developers.google.com/android/reference/com/google/android/gms/location/LocationRequest.html)
-   *
-   * @default `high`
-   * @platform iOS: Not supported
-   * @platform Android: Supported
-   */
-  userLocationPriority?: 'balanced' | 'high' | 'low' | 'passive';
-
-  /**
-   * Interval of user location updates in milliseconds.
-   *
-   * See [Google APIs documentation](https://developers.google.com/android/reference/com/google/android/gms/location/LocationRequest.html)
-   *
-   * @default 5000
-   * @platform iOS: Not supported
-   * @platform Android: Supported
-   */
-  userLocationUpdateInterval?: number;
-
-  /**
-   * If `false` the zoom control at the bottom right of the map won't be visible.
-   *
-   * @default true
-   * @platform iOS: Not supported
-   * @platform Android: Supported
-   */
-  zoomControlEnabled?: boolean;
-
-  /**
-   * If `false` the user won't be able to pinch/zoom the map.
-   *
-   * TODO: Why is the Android reactprop defaultvalue set to false?
-   *
-   * @default true
-   * @platform iOS: Supported
-   * @platform Android: Supported
-   */
-  zoomEnabled?: boolean;
-
-  /**
-   * If `false` the user won't be able to double tap to zoom the map.
-   * **Note:** But it will greatly decrease delay of tap gesture recognition.
-   *
-   * @default true
-   * @platform iOS: Google Maps only
-   * @platform Android: Not supported
-   */
-  zoomTapEnabled?: boolean;
+  tintColor: ColorPropType,
 };
 
-type ModifiedProps = Modify<
-  MapViewProps,
-  {
-    region?: MapViewProps['region'] | null;
-    initialRegion?: MapViewProps['initialRegion'] | null;
+export const enableLatestRenderer = () => {
+  if (Platform.OS !== 'android') {
+    return;
   }
->;
-
-export type NativeProps = Omit<
-  ModifiedProps,
-  'customMapStyle' | 'onRegionChange' | 'onRegionChangeComplete'
-> & {
-  ref: React.RefObject<MapViewNativeComponentType>;
-  customMapStyleString?: string;
-  handlePanDrag?: boolean;
-  onChange?: (e: ChangeEvent) => void;
+  return NativeModules.AirMapModule.enableLatestRenderer();
 };
+
+export const ProviderPropType = PropTypes.oneOf(
+  Object.values(ProviderConstants)
+);
 
 type State = {
   isReady: boolean;
+  region?: Region;
+  initialRegion?: Region;
 };
 
 class MapView extends React.Component<MapViewProps, State> {
-  static Animated: Animated.AnimatedComponent<typeof MapView>;
-  private map: NativeProps['ref'];
+  map: (Component<unknown, {}, any> & Readonly<NativeMethods>) | null = null;
+  __lastRegion?: Region;
+  __layoutCalled: boolean = false;
+
+  static propTypes = propTypes;
+  static viewConfig = viewConfig;
+  static childContextTypes = childContextTypes;
+  static MAP_TYPES = MAP_TYPES;
+
+  static Marker = MapMarker;
+  static Polyline = MapPolyline;
+  static Polygon = MapPolygon;
+  static Circle = MapCircle;
+  static UrlTile = MapUrlTile;
+  static MapWMSTile = MapWMSTile;
+  static LocalTile = MapLocalTile;
+  static Heatmap = MapHeatMap;
+  static Overlay = MapOverlay;
+  static Callout = MapCallout;
+  static CalloutSubview = MapCalloutSubview;
+  static ProviderPropType = ProviderPropType;
+
+  static PROVIDER_GOOGLE = ProviderConstants.PROVIDER_GOOGLE;
+  static PROVIDER_DEFAULT = ProviderConstants.PROVIDER_DEFAULT;
+
+  static AnimatedRegion = AnimatedRegion;
+
+  static Geojson = Geojson;
+  static Animated: RNAnimated.AnimatedComponent<typeof MapView>;
+
+  _commands = new MapCommands();
 
   constructor(props: MapViewProps) {
     super(props);
-
-    this.map = React.createRef<MapViewNativeComponentType>();
 
     this.state = {
       isReady: Platform.OS === 'ios',
     };
 
     this._onMapReady = this._onMapReady.bind(this);
+    this._onMarkerPress = this._onMarkerPress.bind(this);
     this._onChange = this._onChange.bind(this);
+    this._onLayout = this._onLayout.bind(this);
   }
 
-  /**
-   * @deprecated Will be removed in v2.0.0, as setNativeProps is not a thing in fabric.
-   * See https://reactnative.dev/docs/new-architecture-library-intro#migrating-off-setnativeprops
-   */
-  setNativeProps(props: Partial<NativeProps>) {
-    console.warn(
-      'setNativeProps is deprecated and will be removed in next major release',
-    );
-    // @ts-ignore
-    this.map.current?.setNativeProps(props);
+  getChildContext() {
+    return { provider: this.props.provider };
   }
 
-  private _onMapReady() {
-    const {onMapReady} = this.props;
-    this.setState({isReady: true}, () => {
+  // TODO figure out if this is enough???
+  UNSAFE_componentWillReceiveProps(props: MapViewProps) {
+    const lastRegion = this.__lastRegion;
+    const newRegion = props.region;
+    if (!lastRegion || !newRegion) {
+      return;
+    }
+    if (
+      lastRegion.latitude !== newRegion.latitude ||
+      lastRegion.longitude !== newRegion.longitude ||
+      lastRegion.latitudeDelta !== newRegion.latitudeDelta ||
+      lastRegion.longitudeDelta !== newRegion.longitudeDelta
+    ) {
+      // TODO ??????
+      this.setState({ region: newRegion });
+    }
+  }
+
+  _onMapReady() {
+    const { region, initialRegion, onMapReady } = this.props;
+    if (region) {
+      this.setState({ region });
+    } else if (initialRegion) {
+      this.setState({ initialRegion });
+    }
+
+    this.setState({ isReady: true }, () => {
       if (onMapReady) {
         onMapReady();
       }
     });
   }
 
-  private _onChange({nativeEvent}: ChangeEvent) {
+  _onLayout(e: LayoutChangeEvent) {
+    const { layout } = e.nativeEvent;
+    if (!layout.width || !layout.height) {
+      return;
+    }
+    if (this.state.isReady && !this.__layoutCalled) {
+      const { region, initialRegion } = this.props;
+      if (region) {
+        this.__layoutCalled = true;
+        this.setState({ region });
+      } else if (initialRegion) {
+        this.__layoutCalled = true;
+        this.setState({ initialRegion });
+      }
+    }
+    if (this.props.onLayout) {
+      this.props.onLayout(e);
+    }
+  }
+
+  _onMarkerPress(event: MapEvent<{ action: 'marker-press'; id: string }>) {
+    if (this.props.onMarkerPress) {
+      // TODO: figure out this mess
+      // @ts-ignore
+      this.props.onMarkerPress(event.nativeEvent);
+    }
+  }
+
+  _onChange({
+    nativeEvent,
+  }: {
+    nativeEvent: { region: Region; isGesture: boolean; continuous: boolean };
+  }) {
+    this.__lastRegion = nativeEvent.region;
     const isGesture = nativeEvent.isGesture;
-    const details = {isGesture};
+    const details = { isGesture };
 
     if (nativeEvent.continuous) {
       if (this.props.onRegionChange) {
@@ -760,123 +722,181 @@ class MapView extends React.Component<MapViewProps, State> {
     }
   }
 
-  getCamera(): Promise<Camera> {
+  getCamera() {
     if (Platform.OS === 'android') {
       return NativeModules.AirMapModule.getCamera(this._getHandle());
     } else if (Platform.OS === 'ios') {
-      return this._runCommand('getCamera', []);
+      return this._getCommands().getCamera(this.map);
     }
     return Promise.reject('getCamera not supported on this platform');
   }
 
-  setCamera(camera: Partial<Camera>) {
-    if (this.map.current) {
-      Commands.setCamera(this.map.current, camera);
-    }
+  setCamera(camera: Camera) {
+    this._getCommands().setCamera(this.map, camera);
   }
 
-  animateCamera(camera: Partial<Camera>, opts?: {duration?: number}) {
-    if (this.map.current) {
-      Commands.animateCamera(
-        this.map.current,
-        camera,
-        opts?.duration ? opts.duration : 500,
-      );
-    }
+  animateCamera(camera: Camera, opts?: { duration?: number }) {
+    this._getCommands().animateCamera(
+      this.map,
+      camera,
+      opts ? opts.duration : 500
+    );
   }
 
-  animateToRegion(region: Region, duration: number = 500) {
-    if (this.map.current) {
-      Commands.animateToRegion(this.map.current, region, duration);
-    }
+  animateToNavigation(
+    location: LatLng,
+    bearing: number,
+    angle: number,
+    duration?: number
+  ) {
+    console.warn(
+      'animateToNavigation() is deprecated, use animateCamera() instead'
+    );
+    this._getCommands().animateToNavigation(
+      this.map,
+      location,
+      bearing,
+      angle,
+      duration || 500
+    );
   }
 
-  fitToElements(options: FitToOptions = {}) {
-    if (this.map.current) {
-      const {
-        edgePadding = {top: 0, right: 0, bottom: 0, left: 0},
-        animated = true,
-      } = options;
-
-      Commands.fitToElements(this.map.current, edgePadding, animated);
-    }
+  animateToRegion(region: Region, duration?: number) {
+    this._getCommands().animateToRegion(this.map, region, duration || 500);
   }
 
-  fitToSuppliedMarkers(markers: string[], options: FitToOptions = {}) {
-    if (this.map.current) {
-      const {
-        edgePadding = {top: 0, right: 0, bottom: 0, left: 0},
-        animated = true,
-      } = options;
-
-      Commands.fitToSuppliedMarkers(
-        this.map.current,
-        markers,
-        edgePadding,
-        animated,
-      );
-    }
+  animateToCoordinate(latLng: LatLng, duration?: number) {
+    console.warn(
+      'animateToCoordinate() is deprecated, use animateCamera() instead'
+    );
+    this._getCommands().animateToCoordinate(this.map, latLng, duration || 500);
   }
 
-  fitToCoordinates(coordinates: LatLng[] = [], options: FitToOptions = {}) {
-    if (this.map.current) {
-      const {
-        edgePadding = {top: 0, right: 0, bottom: 0, left: 0},
-        animated = true,
-      } = options;
-
-      Commands.fitToCoordinates(
-        this.map.current,
-        coordinates,
-        edgePadding,
-        animated,
-      );
-    }
+  animateToBearing(bearing: number, duration?: number) {
+    console.warn(
+      'animateToBearing() is deprecated, use animateCamera() instead'
+    );
+    this._getCommands().animateToBearing(this.map, bearing, duration || 500);
   }
 
-  /**
+  animateToViewingAngle(angle: number, duration?: number) {
+    console.warn(
+      'animateToViewingAngle() is deprecated, use animateCamera() instead'
+    );
+    this._getCommands().animateToViewingAngle(this.map, angle, duration || 500);
+  }
+
+  fitToElements(
+    options: {
+      edgePadding?: EdgePadding;
+      animated?: boolean;
+    } = {}
+  ) {
+    const {
+      edgePadding = { top: 0, right: 0, bottom: 0, left: 0 },
+      animated = true,
+    } = options;
+
+    this._getCommands().fitToElements(this.map, edgePadding, animated);
+  }
+
+  fitToSuppliedMarkers(
+    markers: string[],
+    options: { edgePadding?: EdgePadding; animated?: boolean }
+  ) {
+    const {
+      edgePadding = { top: 0, right: 0, bottom: 0, left: 0 },
+      animated = true,
+    } = options;
+
+    this._getCommands().fitToSuppliedMarkers(
+      this.map,
+      markers,
+      edgePadding,
+      animated
+    );
+  }
+
+  fitToCoordinates(
+    coordinates: Coordinate[] = [],
+    options: { edgePadding?: EdgePadding; animated?: boolean }
+  ) {
+    const {
+      edgePadding = { top: 0, right: 0, bottom: 0, left: 0 },
+      animated = true,
+    } = options;
+
+    this._getCommands().fitToCoordinates(
+      this.map,
+      coordinates,
+      edgePadding,
+      animated
+    );
+  }
+
+  /**s
    * Get visible boudaries
    *
    * @return Promise Promise with the bounding box ({ northEast: <LatLng>, southWest: <LatLng> })
    */
-  async getMapBoundaries(): Promise<BoundingBox> {
+  async getMapBoundaries() {
     if (Platform.OS === 'android') {
       return await NativeModules.AirMapModule.getMapBoundaries(
-        this._getHandle(),
+        this._getHandle()
       );
     } else if (Platform.OS === 'ios') {
-      return await this._runCommand('getMapBoundaries', []);
+      return await this._getCommands().getMapBoundaries(this.map);
     }
     return Promise.reject('getMapBoundaries not supported on this platform');
   }
 
-  setMapBoundaries(northEast: LatLng, southWest: LatLng) {
-    if (this.map.current) {
-      Commands.setMapBoundaries(this.map.current, northEast, southWest);
-    }
+  setMapBoundaries(northEast: Coordinate, southWest: Coordinate) {
+    this._getCommands().setMapBoundaries(this.map, northEast, southWest);
   }
 
   setIndoorActiveLevelIndex(activeLevelIndex: number) {
-    if (this.map.current) {
-      Commands.setIndoorActiveLevelIndex(this.map.current, activeLevelIndex);
-    }
+    this._getCommands().setIndoorActiveLevelIndex(this.map, activeLevelIndex);
   }
 
   /**
    * Takes a snapshot of the map and saves it to a picture
    * file or returns the image as a base64 encoded string.
    *
-   * @param args Configuration options
-   * @param [args.width] Width of the rendered map-view (when omitted actual view width is used).
-   * @param [args.height] Height of the rendered map-view (when omitted actual height is used).
-   * @param [args.region] Region to render (Only supported on iOS).
-   * @param [args.format] Encoding format ('png', 'jpg') (default: 'png').
-   * @param [args.quality] Compression quality (only used for jpg) (default: 1.0).
-   * @param [args.result] Result format ('file', 'base64') (default: 'file').
+   * @param config Configuration options
+   * @param [config.width] Width of the rendered map-view (when omitted actual view width is used).
+   * @param [config.height] Height of the rendered map-view (when omitted actual height is used).
+   * @param [config.region] Region to render (Only supported on iOS).
+   * @param [config.format] Encoding format ('png', 'jpg') (default: 'png').
+   * @param [config.quality] Compression quality (only used for jpg) (default: 1.0).
+   * @param [config.result] Result format ('file', 'base64') (default: 'file').
    *
    * @return Promise Promise with either the file-uri or base64 encoded string
    */
-  takeSnapshot(args: SnapshotOptions): Promise<string> {
+  takeSnapshot(args: SnapshotOptions) {
+    // For the time being we support the legacy API on iOS.
+    // This will be removed in a future release and only the
+    // new Promise style API shall be supported.
+    if (Platform.OS === 'ios' && arguments.length === 4) {
+      console.warn(
+        'Old takeSnapshot API has been deprecated; will be removed in the near future'
+      );
+      const width = arguments[0];
+      const height = arguments[1];
+      const region = arguments[2];
+      const callback = arguments[3];
+      this._getCommands().takeSnapshot(
+        this.map,
+        width || 0,
+        height || 0,
+        region || {},
+        'png',
+        1,
+        'legacy',
+        callback
+      );
+      return undefined;
+    }
+
     // Sanitize inputs
     const config = {
       width: args.width || 0,
@@ -898,21 +918,22 @@ class MapView extends React.Component<MapViewProps, State> {
       return NativeModules.AirMapModule.takeSnapshot(this._getHandle(), config);
     } else if (Platform.OS === 'ios') {
       return new Promise((resolve, reject) => {
-        this._runCommand('takeSnapshot', [
+        this._getCommands().takeSnapshot(
+          this.map,
           config.width,
           config.height,
           config.region,
           config.format,
           config.quality,
           config.result,
-          (err: unknown, snapshot: string) => {
+          (err: any, snapshot: string) => {
             if (err) {
               reject(err);
             } else {
               resolve(snapshot);
             }
-          },
-        ]);
+          }
+        );
       });
     }
     return Promise.reject('takeSnapshot not supported on this platform');
@@ -927,14 +948,17 @@ class MapView extends React.Component<MapViewProps, State> {
    *
    * @return Promise with return type Address
    */
-  addressForCoordinate(coordinate: LatLng): Promise<Address> {
+  addressForCoordinate(coordinate: Coordinate) {
     if (Platform.OS === 'android') {
       return NativeModules.AirMapModule.getAddressFromCoordinates(
         this._getHandle(),
-        coordinate,
+        coordinate
       );
     } else if (Platform.OS === 'ios') {
-      return this._runCommand('getAddressFromCoordinates', [coordinate]);
+      return this._getCommands().getAddressFromCoordinates(
+        this.map,
+        coordinate
+      );
     }
     return Promise.reject('getAddress not supported on this platform');
   }
@@ -948,14 +972,14 @@ class MapView extends React.Component<MapViewProps, State> {
    *
    * @return Promise Promise with the point ({ x: Number, y: Number })
    */
-  pointForCoordinate(coordinate: LatLng): Promise<Point> {
+  pointForCoordinate(coordinate: Coordinate) {
     if (Platform.OS === 'android') {
       return NativeModules.AirMapModule.pointForCoordinate(
         this._getHandle(),
-        coordinate,
+        coordinate
       );
     } else if (Platform.OS === 'ios') {
-      return this._runCommand('pointForCoordinate', [coordinate]);
+      return this._getCommands().pointForCoordinate(this.map, coordinate);
     }
     return Promise.reject('pointForCoordinate not supported on this platform');
   }
@@ -969,14 +993,14 @@ class MapView extends React.Component<MapViewProps, State> {
    *
    * @return Promise Promise with the coordinate ({ latitude: Number, longitude: Number })
    */
-  coordinateForPoint(point: Point): Promise<LatLng> {
+  coordinateForPoint(point: Point) {
     if (Platform.OS === 'android') {
       return NativeModules.AirMapModule.coordinateForPoint(
         this._getHandle(),
-        point,
+        point
       );
     } else if (Platform.OS === 'ios') {
-      return this._runCommand('coordinateForPoint', [point]);
+      return this._getCommands().coordinateForPoint(this.map, point);
     }
     return Promise.reject('coordinateForPoint not supported on this platform');
   }
@@ -988,11 +1012,9 @@ class MapView extends React.Component<MapViewProps, State> {
    *
    * @return Promise Promise with { <identifier>: { point: Point, frame: Frame } }
    */
-  getMarkersFrames(onlyVisible: boolean = false): Promise<{
-    [key: string]: {point: Point; frame: Frame};
-  }> {
+  getMarkersFrames(onlyVisible = false) {
     if (Platform.OS === 'ios') {
-      return this._runCommand('getMarkersFrames', [onlyVisible]);
+      return this._getCommands().getMarkersFrames(this.map, onlyVisible);
     }
     return Promise.reject('getMarkersFrames not supported on this platform');
   }
@@ -1004,7 +1026,7 @@ class MapView extends React.Component<MapViewProps, State> {
    *
    * @return Object Object bounding box ({ northEast: <LatLng>, southWest: <LatLng> })
    */
-  boundingBoxForRegion(region: Region): BoundingBox {
+  boundingBoxForRegion(region: Region) {
     return {
       northEast: {
         latitude: region.latitude + region.latitudeDelta / 2,
@@ -1016,47 +1038,60 @@ class MapView extends React.Component<MapViewProps, State> {
       },
     };
   }
-
-  private _mapManagerCommand(name: NativeCommandName) {
-    return NativeModules[`${getNativeMapName(this.props.provider)}Manager`][
-      name
-    ];
+  _getHandle() {
+    throw new Error('Needed for android, need to migrate fom this');
   }
 
-  private _getHandle() {
-    return findNodeHandle(this.map.current);
-  }
+  _uiManagerCommand(name: string) {
+    const provider = this.getProvider();
+    const UIManager = NativeModules.UIManager;
+    const componentName = getAirMapName(provider);
 
-  private _runCommand(name: NativeCommandName, args: any[]) {
-    if (Platform.OS === 'ios') {
-      return this._mapManagerCommand(name)(this._getHandle(), ...args);
-    } else {
-      return Promise.reject(`Invalid platform was passed: ${Platform.OS}`);
+    if (!UIManager.getViewManagerConfig) {
+      // RN < 0.58
+      return UIManager[componentName].Commands[name];
     }
+
+    // RN >= 0.58
+    return UIManager.getViewManagerConfig(componentName).Commands[name];
+  }
+
+  _getCommands(): MapCommands {
+    // TODO return proper commands according to provider
+    return this._commands;
+  }
+
+  getProvider(): ProviderConstants.Provider {
+    let provider: ProviderConstants.Provider | undefined;
+    if (provider == null) {
+      return 'default';
+    } else if (provider === 'google') {
+      return 'google';
+    }
+    return 'default';
   }
 
   render() {
-    let props: NativeProps;
+    let props: AIRMapProps;
+    let provider = this.getProvider();
 
     if (this.state.isReady) {
       props = {
-        region: null,
-        initialRegion: null,
+        region: undefined,
+        initialRegion: undefined,
+        onMarkerPress: this._onMarkerPress,
         onChange: this._onChange,
         onMapReady: this._onMapReady,
-        ref: this.map,
-        customMapStyleString: this.props.customMapStyle
-          ? JSON.stringify(this.props.customMapStyle)
-          : undefined,
+        onLayout: this._onLayout,
         ...this.props,
       };
       if (
         Platform.OS === 'ios' &&
-        props.provider === ProviderConstants.PROVIDER_DEFAULT &&
         props.mapType &&
+        provider === ProviderConstants.PROVIDER_DEFAULT &&
         GOOGLE_MAPS_ONLY_TYPES.includes(props.mapType)
       ) {
-        props.mapType = MAP_TYPES.STANDARD;
+        props.mapType = 'standard';
       }
       if (props.onPanDrag) {
         props.handlePanDrag = !!props.onPanDrag;
@@ -1064,69 +1099,95 @@ class MapView extends React.Component<MapViewProps, State> {
     } else {
       props = {
         style: this.props.style,
-        region: null,
-        initialRegion: this.props.initialRegion || null,
-        initialCamera: this.props.initialCamera,
-        ref: this.map,
+        region: undefined,
+        initialRegion: this.props.initialRegion || undefined,
+        onMarkerPress: this._onMarkerPress,
         onChange: this._onChange,
         onMapReady: this._onMapReady,
-        onLayout: this.props.onLayout,
-        customMapStyleString: this.props.customMapStyle
-          ? JSON.stringify(this.props.customMapStyle)
-          : undefined,
+        onLayout: this._onLayout,
       };
     }
 
-    if (Platform.OS === 'android' && this.props.liteMode) {
+    if (props.customMapStyle) {
+      props.customMapStyleString = JSON.stringify(props.customMapStyle);
+    }
+
+    props.region = this.state.region;
+    props.initialRegion = this.state.initialRegion;
+    props.onCommandResponse = this._commands.onCommandResponse;
+
+    if (Platform.OS === 'android' && this.props.liteMode && AIRMapLite) {
       return (
-        <ProviderContext.Provider value={this.props.provider}>
-          <AIRMapLite {...props} />
-        </ProviderContext.Provider>
+        <AIRMapLite
+          ref={(ref) => {
+            this.map = ref;
+          }}
+          {...props}
+        />
       );
     }
 
-    const AIRMap = getNativeMapComponent(this.props.provider);
+    const AIRMapComponent = getAirMapComponent(provider);
 
     return (
-      <ProviderContext.Provider value={this.props.provider}>
-        <AIRMap {...props} />
-      </ProviderContext.Provider>
+      <AIRMapComponent
+        ref={(ref) => {
+          this.map = ref;
+        }}
+        {...props}
+      />
     );
   }
 }
 
-const airMaps: {
-  default: HostComponent<NativeProps>;
-  google: NativeComponent<NativeProps>;
-} = {
-  default: requireNativeComponent<NativeProps>('AIRMap'),
-  google: () => null,
-};
-if (Platform.OS === 'android') {
-  airMaps.google = airMaps.default;
-} else {
-  airMaps.google = googleMapIsInstalled
-    ? requireNativeComponent<NativeProps>('AIRGoogleMap')
+MapView.Animated = RNAnimated.createAnimatedComponent(MapView);
+
+export const Animated = MapView.Animated;
+
+/**
+ * TODO:
+ * All of these properties on MapView are unecessary since they can be imported
+ * individually with the es6 exports in index.js. Removing them is a breaking change,
+ * but potentially allows for better dead code elimination since references are not
+ * kept to components which are never used.
+ */
+
+// TODO: since nativeComponent is taking only one param now,
+/*
+  Check if these params need to bee passed in some other way
+    extraConfig = nativeOnly: {
+      onChange: true,
+      onMapReady: true,
+      onKmlReady: true,
+      handlePanDrag: true,
+    },
+*/
+
+const getGoogleMaps = () =>
+  googleMapIsInstalled
+    ? AIRGoogleMap
     : createNotSupportedComponent(
-        'react-native-maps: AirGoogleMaps dir must be added to your xCode project to support GoogleMaps on iOS.',
+        'react-native-maps: AirGoogleMaps dir must be added to your xCode project to support GoogleMaps on iOS.'
       );
-}
-const getNativeMapComponent = (provider: Provider) =>
+
+const airMapNativeComponent = AIRMap;
+const airMaps = {
+  default: airMapNativeComponent,
+  google: Platform.OS === 'android' ? airMapNativeComponent : getGoogleMaps(),
+};
+
+const getAirMapComponent = (provider: ProviderConstants.Provider) =>
   airMaps[provider || 'default'];
 
-const AIRMapLite = UIManager.getViewManagerConfig('AIRMapLite')
-  ? requireNativeComponent<NativeProps>('AIRMapLite')
-  : () => null;
-
-export const AnimatedMapView = RNAnimated.createAnimatedComponent(MapView);
-
-export const enableLatestRenderer = () => {
-  if (Platform.OS !== 'android') {
-    return;
-  }
-  return NativeModules.AirMapModule.enableLatestRenderer();
-};
-
-MapView.Animated = AnimatedMapView;
+let AIRMapLite: HostComponent<AIRMapProps> | undefined;
+if (!NativeModules.UIManager.getViewManagerConfig) {
+  // RN < 0.58
+  AIRMapLite =
+    NativeModules.UIManager.AIRMapLite && requireNativeComponent('AIRMapLite');
+} else {
+  // RN >= 0.58
+  AIRMapLite =
+    NativeModules.UIManager.getViewManagerConfig('AIRMapLite') && AIRMapLite;
+}
 
 export default MapView;

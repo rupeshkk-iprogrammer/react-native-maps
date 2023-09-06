@@ -38,7 +38,9 @@ public class AirMapGradientPolyline extends AirMapFeature {
 
   private GoogleMap map;
 
+  private TileOverlayOptions tileOverlayOptions;
   private TileOverlay tileOverlay;
+  private AirMapGradientPolylineProvider tileProvider;
   protected final Context context;
 
   public AirMapGradientPolyline(Context context) {
@@ -86,8 +88,8 @@ public class AirMapGradientPolyline extends AirMapFeature {
   private TileOverlayOptions createTileOverlayOptions() {
     TileOverlayOptions options = new TileOverlayOptions();
     options.zIndex(zIndex);
-    AirMapGradientPolylineProvider tileProvider = new AirMapGradientPolylineProvider(context, points, colors, width);
-    options.tileProvider(tileProvider);
+    this.tileProvider = new AirMapGradientPolylineProvider(context, points, colors, width);
+    options.tileProvider(this.tileProvider);
     return options;
   }
 

@@ -2,6 +2,7 @@ package com.airbnb.android.react.maps;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.os.Build;
 import android.util.DisplayMetrics;
 import android.view.WindowManager;
 
@@ -17,10 +18,14 @@ public class AirMapCircleManager extends ViewGroupManager<AirMapCircle> {
 
   public AirMapCircleManager(ReactApplicationContext reactContext) {
     super();
-    metrics = new DisplayMetrics();
-    ((WindowManager) reactContext.getSystemService(Context.WINDOW_SERVICE))
-        .getDefaultDisplay()
-        .getRealMetrics(metrics);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+      metrics = new DisplayMetrics();
+      ((WindowManager) reactContext.getSystemService(Context.WINDOW_SERVICE))
+          .getDefaultDisplay()
+          .getRealMetrics(metrics);
+    } else {
+      metrics = reactContext.getResources().getDisplayMetrics();
+    }
   }
 
   @Override

@@ -1,61 +1,33 @@
-import * as React from 'react';
-import {StyleSheet, ViewProps} from 'react-native';
+import PropTypes from 'prop-types';
+import React from 'react';
+import { StyleSheet } from 'react-native';
+import { ViewPropTypes } from 'deprecated-react-native-prop-types';
 import decorateMapComponent, {
-  MapManagerCommand,
-  NativeComponent,
-  ProviderContext,
+  DecoratedComponent,
   SUPPORTED,
-  UIManagerCommand,
   USES_DEFAULT_IMPLEMENTATION,
 } from './decorateMapComponent';
-import {CalloutPressEvent} from './sharedTypes';
 
-export type MapCalloutProps = ViewProps & {
-  /**
-   * If `true`, clicks on transparent areas in callout will be passed to map.
-   *
-   * @default false
-   * @platform iOS: Supported
-   * @platform Android: Not supported
-   */
-  alphaHitTest?: boolean;
-
-  /**
-   * Callback that is called when the user presses on the callout
-   *
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
-   */
-  onPress?: (event: CalloutPressEvent) => void;
-
-  /**
-   * If `false`, a default "tooltip" bubble window will be drawn around this callouts children.
-   * If `true`, the child views can fully customize their appearance, including any "bubble" like styles.
-   *
-   * @default false
-   * @platform iOS: Supported
-   * @platform Android: Supported
-   */
-  tooltip?: boolean;
+const propTypes = {
+  ...ViewPropTypes,
+  tooltip: PropTypes.bool,
+  onPress: PropTypes.func,
+  alphaHitTest: PropTypes.bool,
 };
 
-type NativeProps = MapCalloutProps;
+const defaultProps = {
+  tooltip: false,
+  alphaHitTest: false,
+};
 
-export class MapCallout extends React.Component<MapCalloutProps> {
-  // declaration only, as they are set through decorateMap
-  declare context: React.ContextType<typeof ProviderContext>;
-  getNativeComponent!: () => NativeComponent<NativeProps>;
-  getMapManagerCommand!: (name: string) => MapManagerCommand;
-  getUIManagerCommand!: (name: string) => UIManagerCommand;
-
+class MapCallout extends DecoratedComponent {
+  static propTypes = propTypes;
+  static defaultProps = defaultProps;
   render() {
-    const {tooltip = false, alphaHitTest = false} = this.props;
-    const AIRMapCallout = this.getNativeComponent();
+    const AIRMapCallout = this.getAirComponent();
     return (
       <AIRMapCallout
         {...this.props}
-        tooltip={tooltip}
-        alphaHitTest={alphaHitTest}
         style={[styles.callout, this.props.style]}
       />
     );
@@ -68,9 +40,12 @@ const styles = StyleSheet.create({
   },
 });
 
-export default decorateMapComponent(MapCallout, 'Callout', {
-  google: {
-    ios: SUPPORTED,
-    android: USES_DEFAULT_IMPLEMENTATION,
+export default decorateMapComponent(MapCallout, {
+  componentType: 'Callout',
+  providers: {
+    google: {
+      ios: SUPPORTED,
+      android: USES_DEFAULT_IMPLEMENTATION,
+    },
   },
 });

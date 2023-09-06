@@ -1,6 +1,7 @@
 package com.airbnb.android.react.maps;
 
 import android.content.Context;
+import android.os.Build;
 import android.util.DisplayMetrics;
 import android.view.WindowManager;
 
@@ -13,13 +14,18 @@ import com.facebook.react.uimanager.annotations.ReactProp;
  * Created by zavadpe on 30/11/2017.
  */
 public class AirMapLocalTileManager extends ViewGroupManager<AirMapLocalTile> {
+    private DisplayMetrics metrics;
 
     public AirMapLocalTileManager(ReactApplicationContext reactContext) {
         super();
-        DisplayMetrics metrics = new DisplayMetrics();
-        ((WindowManager) reactContext.getSystemService(Context.WINDOW_SERVICE))
-                .getDefaultDisplay()
-                .getRealMetrics(metrics);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            metrics = new DisplayMetrics();
+            ((WindowManager) reactContext.getSystemService(Context.WINDOW_SERVICE))
+                    .getDefaultDisplay()
+                    .getRealMetrics(metrics);
+        } else {
+            metrics = reactContext.getResources().getDisplayMetrics();
+        }
     }
 
     @Override
@@ -47,8 +53,4 @@ public class AirMapLocalTileManager extends ViewGroupManager<AirMapLocalTile> {
         view.setZIndex(zIndex);
     }
 
-    @ReactProp(name = "useAssets", defaultBoolean = false)
-    public void setUseAssets(AirMapLocalTile view, boolean useAssets) {
-        view.setUseAssets(useAssets);
-    }
 }

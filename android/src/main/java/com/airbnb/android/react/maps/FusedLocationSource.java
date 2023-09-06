@@ -1,6 +1,5 @@
 package com.airbnb.android.react.maps;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.location.Location;
 import android.os.Looper;
@@ -10,7 +9,6 @@ import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.Priority;
 import com.google.android.gms.maps.LocationSource;
 import com.google.android.gms.tasks.OnSuccessListener;
 
@@ -26,7 +24,7 @@ public class FusedLocationSource implements LocationSource {
         fusedLocationClientProviderClient =
                 LocationServices.getFusedLocationProviderClient(context);
         locationRequest = LocationRequest.create();
-        locationRequest.setPriority(Priority.PRIORITY_HIGH_ACCURACY);
+        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         locationRequest.setInterval(5000);
     }
 
@@ -42,7 +40,6 @@ public class FusedLocationSource implements LocationSource {
         locationRequest.setFastestInterval(fastestInterval);
     }
 
-    @SuppressLint("MissingPermission")
     @Override
     public void activate(final OnLocationChangedListener onLocationChangedListener) {
         try {

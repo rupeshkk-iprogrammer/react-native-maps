@@ -5,9 +5,10 @@ import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Point;
+import android.graphics.PorterDuff;
+import android.graphics.Rect;
+import android.os.Build;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.core.content.PermissionChecker;
 import androidx.core.view.GestureDetectorCompat;
 import androidx.core.view.MotionEventCompat;
@@ -31,6 +32,7 @@ import com.facebook.react.bridge.WritableNativeMap;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.uimanager.ThemedReactContext;
 import com.facebook.react.uimanager.UIManagerModule;
+import com.facebook.react.uimanager.ViewProps;
 import com.facebook.react.uimanager.events.EventDispatcher;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -44,13 +46,13 @@ import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.GroundOverlay;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
-import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PointOfInterest;
 import com.google.android.gms.maps.model.Polygon;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.TileOverlay;
+import com.google.android.gms.maps.model.VisibleRegion;
 import com.google.android.gms.maps.model.IndoorBuilding;
 import com.google.android.gms.maps.model.IndoorLevel;
 import com.google.maps.android.data.kml.KmlContainer;
@@ -74,6 +76,7 @@ import static androidx.core.content.PermissionChecker.checkSelfPermission;
 public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
     GoogleMap.OnMarkerDragListener, OnMapReadyCallback, GoogleMap.OnPoiClickListener, GoogleMap.OnIndoorStateChangeListener {
   public GoogleMap map;
+  private KmlLayer kmlLayer;
   private ProgressBar mapLoadingProgressBar;
   private RelativeLayout mapLoadingLayout;
   private ImageView cacheImageView;
@@ -89,10 +92,6 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
   private boolean moveOnMarkerPress = true;
   private boolean cacheEnabled = false;
   private ReadableMap initialRegion;
-  private ReadableMap initialCamera;
-  private ReadableMap region;
-  private ReadableMap camera;
-  private String customMapStyleString;
   private boolean initialRegionSet = false;
   private boolean initialCameraSet = false;
   private LatLngBounds cameraLastIdleBounds;
@@ -115,9 +114,9 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
   private boolean destroyed = false;
   private final ThemedReactContext context;
   private final EventDispatcher eventDispatcher;
-  private final FusedLocationSource fusedLocationSource;
+  private FusedLocationSource fusedLocationSource;
 
-  private final ViewAttacherGroup attacherGroup;
+  private ViewAttacherGroup attacherGroup;
   private LatLng tapLocation;
 
   private static boolean contextHasBug(Context context) {
@@ -144,8 +143,9 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
         superContext = reactContext.getCurrentActivity();
       } else if (!contextHasBug(reactContext.getApplicationContext())) {
         superContext = reactContext.getApplicationContext();
+      } else {
+        // ¯\_(ツ)_/¯
       }
-
     }
     return superContext;
   }
@@ -210,7 +210,7 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
   }
 
   @Override
-  public void onMapReady(@NonNull final GoogleMap map) {
+  public void onMapReady(final GoogleMap map) {
     if (destroyed) {
       return;
     }
@@ -219,8 +219,10 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
     this.map.setOnMarkerDragListener(this);
     this.map.setOnPoiClickListener(this);
     this.map.setOnIndoorStateChangeListener(this);
-
-    applyBridgedProps();
+    if(initialRegion != null) {
+      setRegion(initialRegion);
+      initialRegionSet = true;
+    }
 
     manager.pushEvent(context, this, "onMapReady", new WritableNativeMap());
 
@@ -239,7 +241,9 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
         coordinate.putDouble("accuracy", location.getAccuracy());
         coordinate.putDouble("speed", location.getSpeed());
         coordinate.putDouble("heading", location.getBearing());
+        if(android.os.Build.VERSION.SDK_INT >= 18){
         coordinate.putBoolean("isFromMockProvider", location.isFromMockProvider());
+        }
 
         event.putMap("coordinate", coordinate);
 
@@ -287,7 +291,7 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
     map.setOnPolylineClickListener(new GoogleMap.OnPolylineClickListener() {
       @Override
       public void onPolylineClick(Polyline polyline) {
-        WritableMap event = makeClickEventData(tapLocation);
+        WritableMap event = makeClickEventData(polyline.getPoints().get(0));
         event.putString("action", "polyline-press");
         manager.pushEvent(context, polylineMap.get(polyline), "onPress", event);
       }
@@ -461,50 +465,30 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
   public void setInitialRegion(ReadableMap initialRegion) {
     this.initialRegion = initialRegion;
     // Theoretically onMapReady might be called before setInitialRegion
-    // In that case, trigger moveToRegion manually
+    // In that case, trigger setRegion manually
     if (!initialRegionSet && map != null) {
-      moveToRegion(initialRegion);
+      setRegion(initialRegion);
       initialRegionSet = true;
     }
   }
 
   public void setInitialCamera(ReadableMap initialCamera) {
-    this.initialCamera = initialCamera;
-    // Theoretically onMapReady might be called before setInitialCamera
-    // In that case, trigger moveToCamera manually
-    if (!initialCameraSet && map != null) {
-      moveToCamera(initialCamera);
+    if (!initialCameraSet && initialCamera != null) {
+      setCamera(initialCamera);
       initialCameraSet = true;
     }
   }
 
-  private void applyBridgedProps() {
-    if(initialRegion != null) {
-      moveToRegion(initialRegion);
-      initialRegionSet = true;
-    } else if(initialCamera != null) {
-      moveToCamera(initialCamera);
-      initialCameraSet = true;
-    } else if(region != null) {
-      moveToRegion(region);
-    } else {
-      moveToCamera(camera);
-    }
-    if(customMapStyleString != null) {
-      map.setMapStyle(new MapStyleOptions(customMapStyleString));
-    }
-  }
-
-  private void moveToRegion(ReadableMap region) {
+  public void setRegion(ReadableMap region) {
     if (region == null) return;
 
-    double lng = region.getDouble("longitude");
-    double lat = region.getDouble("latitude");
-    double lngDelta = region.getDouble("longitudeDelta");
-    double latDelta = region.getDouble("latitudeDelta");
+    Double lng = region.getDouble("longitude");
+    Double lat = region.getDouble("latitude");
+    Double lngDelta = region.getDouble("longitudeDelta");
+    Double latDelta = region.getDouble("latitudeDelta");
     LatLngBounds bounds = new LatLngBounds(
-            new LatLng(lat - latDelta / 2, lng - lngDelta / 2), // southwest
-            new LatLng(lat + latDelta / 2, lng + lngDelta / 2)  // northeast
+        new LatLng(lat - latDelta / 2, lng - lngDelta / 2), // southwest
+        new LatLng(lat + latDelta / 2, lng + lngDelta / 2)  // northeast
     );
     if (super.getHeight() <= 0 || super.getWidth() <= 0) {
       // in this case, our map has not been laid out yet, so we save the bounds in a local
@@ -519,29 +503,15 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
     }
   }
 
-  public void setRegion(ReadableMap region) {
-    this.region = region;
-    if(region != null && map != null) {
-      moveToRegion(region);
-    }
-  }
-
   public void setCamera(ReadableMap camera) {
-    this.camera = camera;
-    if(camera != null && map != null) {
-      moveToCamera(camera);
-    }
-  }
-
-  public void moveToCamera(ReadableMap camera) {
     if (camera == null) return;
 
     CameraPosition.Builder builder = new CameraPosition.Builder();
 
     ReadableMap center = camera.getMap("center");
     if (center != null) {
-      double lng = center.getDouble("longitude");
-      double lat = center.getDouble("latitude");
+      Double lng = center.getDouble("longitude");
+      Double lat = center.getDouble("latitude");
       builder.target(new LatLng(lat, lng));
     }
 
@@ -559,13 +529,6 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
     } else {
       map.moveCamera(update);
       cameraToSet = null;
-    }
-  }
-
-  public void setMapStyle(@Nullable String customMapStyleString) {
-    this.customMapStyleString = customMapStyleString;
-    if(map != null && customMapStyleString != null) {
-      map.setMapStyle(new MapStyleOptions(customMapStyleString));
     }
   }
 
@@ -637,13 +600,24 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
         color = Color.parseColor("#606060");
       }
 
-      ColorStateList progressTintList = ColorStateList.valueOf(loadingIndicatorColor);
-      ColorStateList secondaryProgressTintList = ColorStateList.valueOf(loadingIndicatorColor);
-      ColorStateList indeterminateTintList = ColorStateList.valueOf(loadingIndicatorColor);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+        ColorStateList progressTintList = ColorStateList.valueOf(loadingIndicatorColor);
+        ColorStateList secondaryProgressTintList = ColorStateList.valueOf(loadingIndicatorColor);
+        ColorStateList indeterminateTintList = ColorStateList.valueOf(loadingIndicatorColor);
 
-      this.mapLoadingProgressBar.setProgressTintList(progressTintList);
-      this.mapLoadingProgressBar.setSecondaryProgressTintList(secondaryProgressTintList);
-      this.mapLoadingProgressBar.setIndeterminateTintList(indeterminateTintList);
+        this.mapLoadingProgressBar.setProgressTintList(progressTintList);
+        this.mapLoadingProgressBar.setSecondaryProgressTintList(secondaryProgressTintList);
+        this.mapLoadingProgressBar.setIndeterminateTintList(indeterminateTintList);
+      } else {
+        PorterDuff.Mode mode = PorterDuff.Mode.SRC_IN;
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.GINGERBREAD_MR1) {
+          mode = PorterDuff.Mode.MULTIPLY;
+        }
+        if (this.mapLoadingProgressBar.getIndeterminateDrawable() != null)
+          this.mapLoadingProgressBar.getIndeterminateDrawable().setColorFilter(color, mode);
+        if (this.mapLoadingProgressBar.getProgressDrawable() != null)
+          this.mapLoadingProgressBar.getProgressDrawable().setColorFilter(color, mode);
+      }
     }
   }
 
@@ -825,13 +799,41 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
     }
   }
 
+  public void animateToNavigation(LatLng location, float bearing, float angle, int duration) {
+    if (map == null) return;
+    CameraPosition cameraPosition = new CameraPosition.Builder(map.getCameraPosition())
+        .bearing(bearing)
+        .tilt(angle)
+        .target(location)
+        .build();
+    map.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition), duration, null);
+  }
+
   public void animateToRegion(LatLngBounds bounds, int duration) {
     if (map == null) return;
-    if(duration <= 0) {
-      map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0));
-    } else {
-      map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0), duration, null);
-    }
+    map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0), duration, null);
+  }
+
+  public void animateToViewingAngle(float angle, int duration) {
+    if (map == null) return;
+
+    CameraPosition cameraPosition = new CameraPosition.Builder(map.getCameraPosition())
+      .tilt(angle)
+      .build();
+    map.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition), duration, null);
+  }
+
+  public void animateToBearing(float bearing, int duration) {
+    if (map == null) return;
+    CameraPosition cameraPosition = new CameraPosition.Builder(map.getCameraPosition())
+        .bearing(bearing)
+        .build();
+    map.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition), duration, null);
+  }
+
+  public void animateToCoordinate(LatLng coordinate, int duration) {
+    if (map == null) return;
+    map.animateCamera(CameraUpdateFactory.newLatLng(coordinate), duration, null);
   }
 
   public void fitToElements(ReadableMap edgePadding, boolean animated) {
@@ -929,8 +931,8 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
 
     for (int i = 0; i < coordinatesArray.size(); i++) {
       ReadableMap latLng = coordinatesArray.getMap(i);
-      double lat = latLng.getDouble("latitude");
-      double lng = latLng.getDouble("longitude");
+      Double lat = latLng.getDouble("latitude");
+      Double lng = latLng.getDouble("longitude");
       builder.include(new LatLng(lat, lng));
     }
 
@@ -984,12 +986,12 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
 
     LatLngBounds.Builder builder = new LatLngBounds.Builder();
 
-    double latNE = northEast.getDouble("latitude");
-    double lngNE = northEast.getDouble("longitude");
+    Double latNE = northEast.getDouble("latitude");
+    Double lngNE = northEast.getDouble("longitude");
     builder.include(new LatLng(latNE, lngNE));
 
-    double latSW = southWest.getDouble("latitude");
-    double lngSW = southWest.getDouble("longitude");
+    Double latSW = southWest.getDouble("latitude");
+    Double lngSW = southWest.getDouble("longitude");
     builder.include(new LatLng(latSW, lngSW));
 
     LatLngBounds bounds = builder.build();
@@ -1186,7 +1188,7 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
         return;
       }
 
-      KmlLayer kmlLayer = new KmlLayer(map, kmlStream, context);
+      kmlLayer = new KmlLayer(map, kmlStream, context);
       kmlLayer.addLayerToMap();
 
       WritableMap pointers = new WritableNativeMap();
@@ -1209,7 +1211,7 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
         container = container.getContainers().iterator().next();
       }
 
-      int index = 0;
+      Integer index = 0;
       for (KmlPlacemark placemark : container.getPlacemarks()) {
         MarkerOptions options = new MarkerOptions();
 
@@ -1263,7 +1265,13 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
 
       manager.pushEvent(context, this, "onKmlReady", pointers);
 
-    } catch (XmlPullParserException | IOException | InterruptedException | ExecutionException e) {
+    } catch (XmlPullParserException e) {
+      e.printStackTrace();
+    } catch (IOException e) {
+      e.printStackTrace();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    } catch (ExecutionException e) {
       e.printStackTrace();
     }
   }

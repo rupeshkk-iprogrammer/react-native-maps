@@ -2,7 +2,6 @@ package com.airbnb.android.react.maps;
 
 import android.view.View;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.facebook.react.bridge.Arguments;
@@ -17,17 +16,32 @@ import com.facebook.react.uimanager.ThemedReactContext;
 import com.facebook.react.uimanager.ViewGroupManager;
 import com.facebook.react.uimanager.annotations.ReactProp;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
-import com.google.android.gms.location.Priority;
+import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.GoogleMapOptions;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.MapStyleOptions;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class AirMapManager extends ViewGroupManager<AirMapView> {
 
   private static final String REACT_CLASS = "AIRMap";
+  private static final int ANIMATE_TO_REGION = 1;
+  private static final int ANIMATE_TO_COORDINATE = 2;
+  private static final int ANIMATE_TO_VIEWING_ANGLE = 3;
+  private static final int ANIMATE_TO_BEARING = 4;
+  private static final int FIT_TO_ELEMENTS = 5;
+  private static final int FIT_TO_SUPPLIED_MARKERS = 6;
+  private static final int FIT_TO_COORDINATES = 7;
+  private static final int SET_MAP_BOUNDARIES = 8;
+  private static final int ANIMATE_TO_NAVIGATION = 9; 
+  private static final int SET_INDOOR_ACTIVE_LEVEL_INDEX = 10;
+  private static final int SET_CAMERA = 11;
+  private static final int ANIMATE_CAMERA = 12;
+
 
   private final Map<String, Integer> MAP_TYPES = MapBuilder.of(
       "standard", GoogleMap.MAP_TYPE_NORMAL,
@@ -38,10 +52,10 @@ public class AirMapManager extends ViewGroupManager<AirMapView> {
   );
 
   private final Map<String, Integer> MY_LOCATION_PRIORITY = MapBuilder.of(
-          "balanced", Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-          "high", Priority.PRIORITY_HIGH_ACCURACY,
-          "low", Priority.PRIORITY_LOW_POWER,
-          "passive", Priority.PRIORITY_PASSIVE
+          "balanced", LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY,
+          "high", LocationRequest.PRIORITY_HIGH_ACCURACY,
+          "low", LocationRequest.PRIORITY_LOW_POWER,
+          "passive", LocationRequest.PRIORITY_NO_POWER
   );
 
   private final ReactApplicationContext appContext;
@@ -109,7 +123,7 @@ public class AirMapManager extends ViewGroupManager<AirMapView> {
 
   @ReactProp(name = "customMapStyleString")
   public void setMapStyle(AirMapView view, @Nullable String customMapStyleString) {
-    view.setMapStyle(customMapStyleString);
+    view.map.setMapStyle(new MapStyleOptions(customMapStyleString));
   }
 
   @ReactProp(name = "mapPadding")
@@ -277,37 +291,41 @@ public class AirMapManager extends ViewGroupManager<AirMapView> {
   }
 
   @Override
-  public void receiveCommand(@NonNull AirMapView view, String commandId, @Nullable ReadableArray args) {
-    int duration;
-    double lat;
-    double lng;
-    double lngDelta;
-    double latDelta;
+  public void receiveCommand(AirMapView view, int commandId, @Nullable ReadableArray args) {
+    Integer duration;
+    Double lat;
+    Double lng;
+    Double lngDelta;
+    Double latDelta;
+    float bearing;
+    float angle;
     ReadableMap region;
     ReadableMap camera;
 
     switch (commandId) {
-      case "setCamera":
-        if(args == null) {
-          break;
-        }
+      case SET_CAMERA:
         camera = args.getMap(0);
         view.animateToCamera(camera, 0);
         break;
 
-      case "animateCamera":
-        if(args == null) {
-          break;
-        }
+      case ANIMATE_CAMERA:
         camera = args.getMap(0);
         duration = args.getInt(1);
         view.animateToCamera(camera, duration);
         break;
 
-      case "animateToRegion":
-        if(args == null) {
-          break;
-        }
+      case ANIMATE_TO_NAVIGATION:
+        region = args.getMap(0);
+        lng = region.getDouble("longitude");
+        lat = region.getDouble("latitude");
+        LatLng location = new LatLng(lat, lng);
+        bearing = (float)args.getDouble(1);
+        angle = (float)args.getDouble(2);
+        duration = args.getInt(3);
+        view.animateToNavigation(location, bearing, angle, duration);
+        break;
+
+      case ANIMATE_TO_REGION:
         region = args.getMap(0);
         duration = args.getInt(1);
         lng = region.getDouble("longitude");
@@ -321,38 +339,43 @@ public class AirMapManager extends ViewGroupManager<AirMapView> {
         view.animateToRegion(bounds, duration);
         break;
 
-      case "fitToElements":
-        if(args == null) {
-          break;
-        }
+      case ANIMATE_TO_COORDINATE:
+        region = args.getMap(0);
+        duration = args.getInt(1);
+        lng = region.getDouble("longitude");
+        lat = region.getDouble("latitude");
+        view.animateToCoordinate(new LatLng(lat, lng), duration);
+        break;
+
+      case ANIMATE_TO_VIEWING_ANGLE:
+        angle = (float)args.getDouble(0);
+        duration = args.getInt(1);
+        view.animateToViewingAngle(angle, duration);
+        break;
+
+      case ANIMATE_TO_BEARING:
+        bearing = (float)args.getDouble(0);
+        duration = args.getInt(1);
+        view.animateToBearing(bearing, duration);
+        break;
+
+      case FIT_TO_ELEMENTS:
         view.fitToElements(args.getMap(0), args.getBoolean(1));
         break;
 
-      case "fitToSuppliedMarkers":
-        if(args == null) {
-          break;
-        }
+      case FIT_TO_SUPPLIED_MARKERS:
         view.fitToSuppliedMarkers(args.getArray(0), args.getMap(1), args.getBoolean(2));
         break;
 
-      case "fitToCoordinates":
-        if(args == null) {
-          break;
-        }
+      case FIT_TO_COORDINATES:
         view.fitToCoordinates(args.getArray(0), args.getMap(1), args.getBoolean(2));
         break;
 
-      case "setMapBoundaries":
-        if(args == null) {
-          break;
-        }
+      case SET_MAP_BOUNDARIES:
         view.setMapBoundaries(args.getMap(0), args.getMap(1));
         break;
 
-      case "setIndoorActiveLevelIndex":
-        if(args == null) {
-          break;
-        }
+      case SET_INDOOR_ACTIVE_LEVEL_INDEX:
         view.setIndoorActiveLevelIndex(args.getInt(0));
         break;
     }
@@ -388,6 +411,46 @@ public class AirMapManager extends ViewGroupManager<AirMapView> {
         "onMapLoaded", MapBuilder.of("registrationName", "onMapLoaded")
     ));
 
+    return map;
+  }
+  
+  @Nullable
+  @Override
+  public Map<String, Integer> getCommandsMap() {
+    Map<String, Integer> map = this.CreateMap(
+        "setCamera", SET_CAMERA,
+        "animateCamera", ANIMATE_CAMERA,
+        "animateToRegion", ANIMATE_TO_REGION,
+        "animateToCoordinate", ANIMATE_TO_COORDINATE,
+        "animateToViewingAngle", ANIMATE_TO_VIEWING_ANGLE,
+        "animateToBearing", ANIMATE_TO_BEARING,
+        "fitToElements", FIT_TO_ELEMENTS,
+        "fitToSuppliedMarkers", FIT_TO_SUPPLIED_MARKERS,
+        "fitToCoordinates", FIT_TO_COORDINATES,
+        "animateToNavigation", ANIMATE_TO_NAVIGATION
+    );
+
+    map.putAll(MapBuilder.of(
+      "setMapBoundaries", SET_MAP_BOUNDARIES,
+      "setIndoorActiveLevelIndex", SET_INDOOR_ACTIVE_LEVEL_INDEX
+    ));
+
+    return map;
+  }
+
+  public static <K, V> Map<K, V> CreateMap(
+  K k1, V v1, K k2, V v2, K k3, V v3, K k4, V v4, K k5, V v5, K k6, V v6, K k7, V v7, K k8, V v8, K k9, V v9, K k10, V v10) {
+    Map map = new HashMap<K, V>();
+    map.put(k1, v1);
+    map.put(k2, v2);
+    map.put(k3, v3);
+    map.put(k4, v4);
+    map.put(k5, v5);
+    map.put(k6, v6);
+    map.put(k7, v7);
+    map.put(k8, v8);
+    map.put(k9, v9);
+    map.put(k10, v10);
     return map;
   }
 

@@ -1,59 +1,52 @@
-import * as React from 'react';
-import {ViewProps} from 'react-native';
+import PropTypes from 'prop-types';
+import React from 'react';
+import { ViewPropTypes } from 'deprecated-react-native-prop-types';
 
 import decorateMapComponent, {
   USES_DEFAULT_IMPLEMENTATION,
   SUPPORTED,
-  ProviderContext,
-  NativeComponent,
-  MapManagerCommand,
-  UIManagerCommand,
+  DecoratedComponent,
 } from './decorateMapComponent';
 
-export type MapLocalTileProps = ViewProps & {
-  /**
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
-   */
-  pathTemplate: string;
+const propTypes = {
+  ...ViewPropTypes,
 
   /**
-   * @platform iOS: Apple Maps only
-   * @platform Android: Supported
+   * The path template of the local tile source.
+   * The patterns {x} {y} {z} will be replaced at runtime,
+   * for example, /storage/emulated/0/tiles/{z}/{x}/{y}.png.
    */
-  tileSize?: number;
+  pathTemplate: PropTypes.string.isRequired,
 
   /**
-   * Set to true to use pathTemplate to open files from Android's AssetManager. The default is false.
+   * The order in which this tile overlay is drawn with respect to other overlays. An overlay
+   * with a larger z-index is drawn over overlays with smaller z-indices. The order of overlays
+   * with the same z-index is arbitrary. The default zIndex is -1.
+   *
    * @platform android
    */
-  useAssets?: boolean;
+  zIndex: PropTypes.number,
 
   /**
-   * @platform iOS: Not supported
-   * @platform Android: Supported
+   * Size of tile images.
    */
-  zIndex?: number;
+  tileSize: PropTypes.number,
 };
 
-type NativeProps = MapLocalTileProps;
-
-export class MapLocalTile extends React.Component<MapLocalTileProps> {
-  // declaration only, as they are set through decorateMap
-  declare context: React.ContextType<typeof ProviderContext>;
-  getNativeComponent!: () => NativeComponent<NativeProps>;
-  getMapManagerCommand!: (name: string) => MapManagerCommand;
-  getUIManagerCommand!: (name: string) => UIManagerCommand;
-
+class MapLocalTile extends DecoratedComponent {
+  static propTypes = propTypes;
   render() {
-    const AIRMapLocalTile = this.getNativeComponent();
+    const AIRMapLocalTile = this.getAirComponent();
     return <AIRMapLocalTile {...this.props} />;
   }
 }
 
-export default decorateMapComponent(MapLocalTile, 'LocalTile', {
-  google: {
-    ios: SUPPORTED,
-    android: USES_DEFAULT_IMPLEMENTATION,
+export default decorateMapComponent(MapLocalTile, {
+  componentType: 'LocalTile',
+  providers: {
+    google: {
+      ios: SUPPORTED,
+      android: USES_DEFAULT_IMPLEMENTATION,
+    },
   },
 });

@@ -1,6 +1,7 @@
 package com.airbnb.android.react.maps;
 
 import android.content.Context;
+import android.os.Build;
 import android.util.DisplayMetrics;
 import android.view.WindowManager;
 
@@ -16,13 +17,18 @@ import com.facebook.react.uimanager.annotations.ReactProp;
 import java.util.Map;
 
 public class AirMapOverlayManager extends ViewGroupManager<AirMapOverlay> {
+  private final DisplayMetrics metrics;
 
   public AirMapOverlayManager(ReactApplicationContext reactContext) {
     super();
-    DisplayMetrics metrics = new DisplayMetrics();
-    ((WindowManager) reactContext.getSystemService(Context.WINDOW_SERVICE))
-        .getDefaultDisplay()
-        .getRealMetrics(metrics);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+      metrics = new DisplayMetrics();
+      ((WindowManager) reactContext.getSystemService(Context.WINDOW_SERVICE))
+          .getDefaultDisplay()
+          .getRealMetrics(metrics);
+    } else {
+      metrics = reactContext.getResources().getDisplayMetrics();
+    }
   }
 
   @Override

@@ -109,7 +109,7 @@ public class AirMapPolyline extends AirMapFeature {
       if(isGap) {
         this.pattern.add(new Gap(patternValue));
       }else {
-        PatternItem patternItem;
+        PatternItem patternItem = null;
         boolean isLineCapRound = this.lineCap instanceof RoundCap;
         if(isLineCapRound) {
           patternItem = new Dot();

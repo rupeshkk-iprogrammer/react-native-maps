@@ -1,35 +1,25 @@
-import * as React from 'react';
-import {NativeSyntheticEvent, StyleSheet, ViewProps} from 'react-native';
+import PropTypes from 'prop-types';
+import React from 'react';
+import { StyleSheet } from 'react-native';
+import { ViewPropTypes } from 'deprecated-react-native-prop-types';
 import decorateMapComponent, {
   SUPPORTED,
   NOT_SUPPORTED,
-  ProviderContext,
-  NativeComponent,
-  MapManagerCommand,
-  UIManagerCommand,
+  DecoratedComponent,
 } from './decorateMapComponent';
-import {Frame, Point} from './sharedTypes';
 
-export type MapCalloutSubviewProps = ViewProps & {
-  /**
-   * Callback that is called when the user presses on this subview inside callout
-   *
-   * @platform iOS: Supported
-   * @platform Android: Not supported
-   */
-  onPress?: (event: CalloutSubviewPressEvent) => void;
+const propTypes = {
+  ...ViewPropTypes,
+  onPress: PropTypes.func,
 };
 
-type NativeProps = MapCalloutSubviewProps;
+const defaultProps = {};
 
-export class MapCalloutSubview extends React.Component<MapCalloutSubviewProps> {
-  // declaration only, as they are set through decorateMap
-  declare context: React.ContextType<typeof ProviderContext>;
-  getNativeComponent!: () => NativeComponent<NativeProps>;
-  getMapManagerCommand!: (name: string) => MapManagerCommand;
-  getUIManagerCommand!: (name: string) => UIManagerCommand;
+class MapCalloutSubview extends DecoratedComponent {
+  static propTypes = propTypes;
+  static defaultProps = defaultProps;
   render() {
-    const AIRMapCalloutSubview = this.getNativeComponent();
+    const AIRMapCalloutSubview = this.getAirComponent();
     return (
       <AIRMapCalloutSubview
         {...this.props}
@@ -43,21 +33,12 @@ const styles = StyleSheet.create({
   calloutSubview: {},
 });
 
-export default decorateMapComponent(MapCalloutSubview, 'CalloutSubview', {
-  google: {
-    ios: SUPPORTED,
-    android: NOT_SUPPORTED,
+export default decorateMapComponent(MapCalloutSubview, {
+  componentType: 'CalloutSubview',
+  providers: {
+    google: {
+      ios: SUPPORTED,
+      android: NOT_SUPPORTED,
+    },
   },
 });
-
-type CalloutSubviewPressEvent = NativeSyntheticEvent<{
-  /**
-   * Apple Maps: `callout-inside-press`
-   *
-   * Google Maps: `marker-inside-overlay-press`
-   */
-  action: 'callout-inside-press' | 'marker-inside-overlay-press';
-  frame: Frame;
-  id: string;
-  point: Point;
-}>;
